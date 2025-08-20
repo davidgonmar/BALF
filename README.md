@@ -15,3 +15,4 @@ For ImageNet experiments, we use publicly available checkpoints. For CIFAR-10 mo
 ```
 ./scripts/train_cifar.sh
 ```
+"# general-activation-aware-svd-factorization" 
