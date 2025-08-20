@@ -6,7 +6,19 @@ from .flops import count_model_flops
 from .layer_fusion import fuse_batch_norm_inference
 import random
 import numpy as np
-from .general import gather_submodules, keys_passlist_should_do, unzip, get_all_convs_and_linears, extract_weights, AverageMeter, seed_everything, replace_with_factory, is_linear, is_conv2d
+from .general import (
+    gather_submodules,
+    keys_passlist_should_do,
+    unzip,
+    get_all_convs_and_linears,
+    extract_weights,
+    AverageMeter,
+    seed_everything,
+    replace_with_factory,
+    is_linear,
+    is_conv2d,
+)
+
 
 def evaluate_vision_model(
     model: torch.nn.Module, dataloader: torch.utils.data.DataLoader, eval=True

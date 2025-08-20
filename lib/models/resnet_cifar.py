@@ -74,21 +74,26 @@ def resnet(depth, num_classes=10):
     n = (depth - 2) // 6
     return ResNet(BasicBlock, [n, n, n], num_classes)
 
+
 def resnet20(num_classes=10):
     return resnet(20, num_classes)
+
 
 def resnet32(num_classes=10):
     return resnet(32, num_classes)
 
+
 def resnet44(num_classes=10):
     return resnet(44, num_classes)
+
 
 def resnet56(num_classes=10):
     return resnet(56, num_classes)
 
+
 def resnet110(num_classes=10):
     return resnet(110, num_classes)
 
+
 def resnet1202(num_classes=10):
     return resnet(1202, num_classes)
-

@@ -23,6 +23,7 @@ from lib.factorization.factorize import collect_activation_cache
 import random
 from typing import List
 
+
 ###############################################################################
 # Dataset that yields *contiguous* token blocks of fixed length
 ###############################################################################
@@ -44,7 +45,7 @@ class ContiguousSeqDataset(Dataset):
             raise ValueError(
                 f"Corpus too small: need {total_needed} tokens, have {ids.size(0)}"
             )
-        ids = ids[: total_needed]
+        ids = ids[:total_needed]
         self.seq_len = seq_len
         self.samples = ids.view(n_samples, seq_len)
 
@@ -57,6 +58,7 @@ class ContiguousSeqDataset(Dataset):
             "input_ids": chunk.clone(),
             "attention_mask": torch.ones_like(chunk),
         }
+
 
 class ContiguousSeqDataset(Dataset):
     """
@@ -78,14 +80,14 @@ class ContiguousSeqDataset(Dataset):
 
     def __init__(
         self,
-        texts: List[str],                # ignored, keeps signature unchanged
+        texts: List[str],  # ignored, keeps signature unchanged
         tokenizer: AutoTokenizer,
         n_samples: int,
         seq_len: int,
         *,
         seed: int = 3,
-        cache_dir = None,
-        cache_file = None,
+        cache_dir=None,
+        cache_file=None,
     ) -> None:
         super().__init__()
         self.seq_len = seq_len
@@ -128,9 +130,9 @@ class ContiguousSeqDataset(Dataset):
             # pick a random start, give tokenizer plenty of context
             i = random.randint(0, text_len - seq_len - 1)
             j = min(i + seq_len * 10, text_len)
-            chunk_ids = tokenizer(
-                full_text[i:j], return_tensors="pt"
-            ).input_ids[:, :seq_len]  # [1, <=seq_len]
+            chunk_ids = tokenizer(full_text[i:j], return_tensors="pt").input_ids[
+                :, :seq_len
+            ]  # [1, <=seq_len]
 
             # rare edge-case: too few tokens → resample
             if chunk_ids.size(1) < seq_len:
@@ -155,17 +157,22 @@ class ContiguousSeqDataset(Dataset):
             "attention_mask": torch.ones_like(chunk),
         }
 
+
 def collate(batch):
     return {k: torch.stack([x[k] for x in batch]) for k in batch[0]}
+
 
 ###############################################################################
 # Main
 ###############################################################################
 
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_name", required=True)
-    parser.add_argument("--dataset", choices=["wikitext2", "ptb", "c4"], default="wikitext2")
+    parser.add_argument(
+        "--dataset", choices=["wikitext2", "ptb", "c4"], default="wikitext2"
+    )
     parser.add_argument("--seq_len", type=int, default=2048)
     parser.add_argument("--n_samples", type=int, default=256)
     parser.add_argument("--batch_size", type=int, default=2)
@@ -180,7 +187,9 @@ def main():
     # ------------------------------------------------------------------
     tok = AutoTokenizer.from_pretrained(args.model_name, use_fast=False)
 
-    model = AutoModelForCausalLM.from_pretrained(args.model_name, torch_dtype=torch.float16)
+    model = AutoModelForCausalLM.from_pretrained(
+        args.model_name, torch_dtype=torch.float16
+    )
     model.to("cuda").eval()
 
     # ------------------------------------------------------------------
@@ -189,7 +198,9 @@ def main():
     if args.dataset == "wikitext2":
         texts = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")["text"]
     elif args.dataset == "ptb":
-        texts = load_dataset("ptb_text_only", "penn_treebank", split="train")["sentence"]
+        texts = load_dataset("ptb_text_only", "penn_treebank", split="train")[
+            "sentence"
+        ]
     else:  # C4 — take several shards if available
         c4 = load_dataset("c4", "en", split="train", streaming=False)
         texts = c4.shuffle(seed=args.seed)["text"]  # shuffle for diversity
@@ -217,4 +228,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

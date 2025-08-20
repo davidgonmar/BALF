@@ -1,8 +1,4 @@
-from lib.utils.general import (
-    gather_submodules,
-    keys_passlist_should_do,
-    unzip
-)
+from lib.utils.general import gather_submodules, keys_passlist_should_do, unzip
 import copy
 import torch.nn as nn
 from typing import List, Tuple, Callable
@@ -166,6 +162,5 @@ def get_conv_bn_fuse_pairs(model):
                 pairs.append((a, b))
     return pairs
 
+
 resnet56_fuse_pairs = []
-
-

@@ -1,8 +1,15 @@
 import torch
 import torch.nn as nn
 from typing import Dict, Optional
-from lib.utils import gather_submodules, get_all_convs_and_linears, keys_passlist_should_do
-from lib.factorization.factorize import to_low_rank_activation_aware_manual, merge_low_rank_layers
+from lib.utils import (
+    gather_submodules,
+    get_all_convs_and_linears,
+    keys_passlist_should_do,
+)
+from lib.factorization.factorize import (
+    to_low_rank_activation_aware_manual,
+    merge_low_rank_layers,
+)
 
 
 def l1_l2_ratio(vec: torch.Tensor) -> torch.Tensor:
@@ -11,6 +18,7 @@ def l1_l2_ratio(vec: torch.Tensor) -> torch.Tensor:
     if l1 == 0:
         return torch.zeros_like(l1)
     return l1 / torch.norm(vec, p=2)
+
 
 class SingularValsRegularizer(nn.Module):
     def __init__(self, model: nn.Module, layer_names: Optional[str] = None):
@@ -33,7 +41,6 @@ class SingularValsRegularizer(nn.Module):
         return out
 
 
-
 class BatchWhiteningShrinker:
     """
     Periodically factorizes selected Linear/Conv2d layers into low-rank form using
@@ -46,6 +53,7 @@ class BatchWhiteningShrinker:
             # ... training ...
             shrinker.step()  # will compress+merge every `every` calls
     """
+
     def __init__(
         self,
         model: nn.Module,
@@ -81,7 +89,9 @@ class BatchWhiteningShrinker:
 
     def _refresh_targets(self):
         # Recompute targets after merges (names may remain but modules change)
-        self.layers = gather_submodules(self.model, keys_passlist_should_do(self._layer_names))
+        self.layers = gather_submodules(
+            self.model, keys_passlist_should_do(self._layer_names)
+        )
         self._layer_names = [name for name, _ in self.layers]
 
     def step(self, clean_if_used: bool = True):

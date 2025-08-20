@@ -150,7 +150,7 @@ lightning_logs/
 
 bert_imdb
 
-examples/tfg/*
+
 
 *.pgf
 
@@ -161,3 +161,6 @@ runs/
 tfg/
 
 *.pdf
+
+imagenet-calib/
+imagenet-val/

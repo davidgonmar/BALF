@@ -73,6 +73,7 @@ def maximize_energy(
     return [selected_indices[i] for i in range(len(selected_indices))]
 """
 
+
 def maximize_energy(
     cum_energy_vectors, cumulative_cost_vectors, total_cost, minimize=False
 ):
@@ -82,8 +83,8 @@ def maximize_energy(
     under the cost budget.
     """
 
-    #print("start")
-    #start_time = time.time()
+    # print("start")
+    # start_time = time.time()
     # Convert inputs to numpy arrays of floats
     def to_array(vec):
         if isinstance(vec, torch.Tensor):
@@ -94,7 +95,7 @@ def maximize_energy(
 
     energies = [to_array(vec) for vec in cum_energy_vectors]
     costs = [to_array(vec) for vec in cumulative_cost_vectors]
-    #num_groups = len(energies)
+    # num_groups = len(energies)
 
     low, high = 0.0, 0.0
     for e_vec, c_vec in zip(energies, costs):
@@ -104,7 +105,6 @@ def maximize_energy(
 
     if high == 0.0:
         high = 1.0
-
 
     def compute_selection(lmbda):
         sel_idx = []
@@ -131,8 +131,9 @@ def maximize_energy(
             high = mid
 
     sel_final, _, _ = compute_selection(high)
-    #print(f"Time taken: {time.time() - start_time} seconds")
+    # print(f"Time taken: {time.time() - start_time} seconds")
     return [j + 1 for j in sel_final]
+
 
 def generate_cost_flops_linear(weight_shape: tuple, out_shape: tuple) -> torch.Tensor:
     # A decomposed linear layer has shapes W_0 in [O, R] and W_1 in [R, I], input in [B, I] and output in [B, O]
@@ -236,18 +237,21 @@ def should_do_low_rank(W, rank):
 def obtain_whitening_matrix(
     acts: torch.Tensor,
     module: nn.Module,
-):  
+):
     # cusolver seems to have a memory access error?
     torch.backends.cuda.preferred_linalg_library("magma")
-    eigenvalues, eigenvectors = torch.linalg.eigh(acts.cuda().float()) # acts might be in lower precision
+    eigenvalues, eigenvectors = torch.linalg.eigh(
+        acts.cuda().float()
+    )  # acts might be in lower precision
     eigenvalues, eigenvectors = eigenvalues.to(acts.dtype), eigenvectors.to(acts.dtype)
     x_svals = torch.sqrt(eigenvalues)
     V = eigenvectors
     keep = x_svals > 1e-10
     x_svals = x_svals[keep]
     V = V[:, keep]
-    print(f"Whitening matrix for {module.__class__.__name__} has rank {len(x_svals)}")
+    # print(f"Whitening matrix for {module.__class__.__name__} has rank {len(x_svals)}")
     return V @ torch.diag(1 / x_svals), torch.diag(x_svals) @ V.T
+
 
 def factorize_linear_whitened(
     module,
@@ -268,12 +272,16 @@ def factorize_linear_whitened(
     W0, W1 = get_factors(U, S, V_T)  # shape (in, rank), (out, rank)
     W0 = data_whitening_matrix @ W0
 
-    low_rank_linear = LowRankLinear(
-        module.in_features,
-        module.out_features,
-        rank,
-        bias=module.bias is not None,
-    ).to(module.weight.device).to(module.weight.dtype)
+    low_rank_linear = (
+        LowRankLinear(
+            module.in_features,
+            module.out_features,
+            rank,
+            bias=module.bias is not None,
+        )
+        .to(module.weight.device)
+        .to(module.weight.dtype)
+    )
     low_rank_linear.w0.data.copy_(W0)
     low_rank_linear.w1.data.copy_(W1)
     if module.bias is not None:
@@ -306,17 +314,21 @@ def factorize_conv2d_whitened(
     W0 = data_whitening_matrix @ W0
     W1 = W1.T.reshape(C_o, rank, 1, 1)
     W0 = W0.T.reshape(rank, C_i, H_k, W_k)
-    low_rank_conv2d = LowRankConv2d(
-        module.in_channels,
-        module.out_channels,
-        (H_k, W_k),
-        rank,
-        stride=module.stride,
-        padding=module.padding,
-        dilation=module.dilation,
-        groups=module.groups,
-        bias=module.bias is not None,
-    ).to(module.weight.device).to(module.weight.dtype)
+    low_rank_conv2d = (
+        LowRankConv2d(
+            module.in_channels,
+            module.out_channels,
+            (H_k, W_k),
+            rank,
+            stride=module.stride,
+            padding=module.padding,
+            dilation=module.dilation,
+            groups=module.groups,
+            bias=module.bias is not None,
+        )
+        .to(module.weight.device)
+        .to(module.weight.dtype)
+    )
     low_rank_conv2d.w0.data.copy_(W0)
     low_rank_conv2d.w1.data.copy_(W1)
     if module.bias is not None:
@@ -340,14 +352,17 @@ def _process_act(act, mod):
 
     elif isinstance(mod, nn.Linear):
         # Input should be of shape (B, Cin)
-        assert act.dim() == 2 or act.dim() == 3 # for language models, [B, L, D]
-        im2coled = act.reshape(-1, act.shape[-1])  # flatten the batch and sequence dimensions
+        assert act.dim() == 2 or act.dim() == 3  # for language models, [B, L, D]
+        im2coled = act.reshape(
+            -1, act.shape[-1]
+        )  # flatten the batch and sequence dimensions
     return im2coled.float()
 
 
 # -------------------------
 # Public collection utility
 # -------------------------
+
 
 def _move(obj, device):
     if torch.is_tensor(obj):
@@ -357,22 +372,25 @@ def _move(obj, device):
     if isinstance(obj, (list, tuple)):
         return type(obj)(_move(v, device) for v in obj)
 
+
 def collect_activation_cache(model: nn.Module, data, keys):
     length = data.size(0) if isinstance(data, torch.Tensor) else len(data)
     loader = [data] if isinstance(data, torch.Tensor) else data
     mods = gather_submodules(model, should_do=keys_passlist_should_do(keys))
     device = next(model.parameters()).device
     acts, outs, hooks = {}, {}, []
+
     def fn(n, m, inp, out):
-       
+
         x = inp[0] if isinstance(inp, tuple) else inp
         a = _process_act(x.detach(), m)
         if acts.get(n) is None:
             acts[n] = torch.zeros(a.shape[1], a.shape[1], device=device, dtype=a.dtype)
         acts[n] = acts[n].to(device, non_blocking=True)
-        acts[n] += (a.T @ a / length)
+        acts[n] += a.T @ a / length
         acts[n] = acts[n].to("cpu")
         outs.setdefault(n, out.detach().cpu())
+
     for n, m in mods:
         hooks.append(m.register_forward_hook(functools.partial(fn, n)))
     state = model.training
@@ -388,14 +406,21 @@ def collect_activation_cache(model: nn.Module, data, keys):
             elif isinstance(batch, (list, tuple)):
                 model(_move(batch[0], device))
             elif isinstance(batch, dict):
-                model(**{k: v.to(device) for k, v in batch.items() if k not in {"labels", "label"} and torch.is_tensor(v)})
+                model(
+                    **{
+                        k: v.to(device)
+                        for k, v in batch.items()
+                        if k not in {"labels", "label"} and torch.is_tensor(v)
+                    }
+                )
             else:
                 raise TypeError(type(batch))
     model.train(state)
     for h in hooks:
         h.remove()
-    
+
     return {"acts": acts, "outs": outs, "len_dataset": length}
+
 
 def to_low_rank_activation_aware_auto(
     model: nn.Module,
@@ -413,7 +438,9 @@ def to_low_rank_activation_aware_auto(
         should_do=keys_passlist_should_do(keys),
     )
 
-    if isinstance(data_or_cache, dict) and {"acts", "outs", "len_dataset"} <= set(data_or_cache.keys()):
+    if isinstance(data_or_cache, dict) and {"acts", "outs", "len_dataset"} <= set(
+        data_or_cache.keys()
+    ):
         cache = data_or_cache
     else:
         cache = collect_activation_cache(model, data_or_cache, keys)
@@ -438,8 +465,6 @@ def to_low_rank_activation_aware_auto(
         cum_energies.append(energy)
 
     print("end calculating cumulative energies")
-
-
 
     ws = [mod.weight.detach() for _, mod in modules_to_replace]
     out_shapes = [outs[name].shape for name, _ in modules_to_replace]
@@ -474,8 +499,8 @@ def to_low_rank_activation_aware_auto(
         raise ValueError(
             f"Unknown metric '{metric}'. Choose from 'flops', 'params', 'rank'."
         )
-    costs = [c[:len(en)] for c, en in zip(costs, cum_energies)]
-    
+    costs = [c[: len(en)] for c, en in zip(costs, cum_energies)]
+
     print("start maximizing energy")
     selected_indices = maximize_energy(cum_energies, costs, total_budget)
     print("end maximizing energy")
@@ -511,6 +536,7 @@ def to_low_rank_activation_aware_auto(
     )
     return model
 
+
 def to_low_rank_activation_aware_auto(
     model: nn.Module,
     data_or_cache,
@@ -538,7 +564,7 @@ def to_low_rank_activation_aware_auto(
         return save_dir / (name.replace(".", "__") + ".pt")
 
     def _save_whit(name: str, whitener: Tuple[torch.Tensor, torch.Tensor]):
-        print(f"[LRA-AUTO] Saving whitening matrix for module '{name}' to {_fname(name)}'.")
+        # print(f"[LRA-AUTO] Saving whitening matrix for module '{name}' to {_fname(name)}'.")
         if save_dir is None:
             return
         torch.save(whitener, _fname(name), _use_new_zipfile_serialization=False)
@@ -553,9 +579,8 @@ def to_low_rank_activation_aware_auto(
             whit_cache[name] = whit
         return (whit[0].cuda(), whit[1].cuda()) if torch.cuda.is_available() else whit
 
-    if (
-        isinstance(data_or_cache, dict)
-        and {"acts", "outs", "len_dataset"} <= set(data_or_cache.keys())
+    if isinstance(data_or_cache, dict) and {"acts", "outs", "len_dataset"} <= set(
+        data_or_cache.keys()
     ):
         cache = data_or_cache
     else:
@@ -570,7 +595,7 @@ def to_low_rank_activation_aware_auto(
     ws: List[torch.Tensor] = []
     out_shapes: List[torch.Size] = []
 
-    print("[LRA-AUTO] Calculating cumulative energies (memory-safe mode)…")
+    # print("[LRA-AUTO] Calculating cumulative energies (memory-safe mode)…")
     for name, module in modules_to_replace:
         if save_dir is not None and load_existing and _fname(name).exists():
             whit = _load_whit(name)
@@ -583,7 +608,7 @@ def to_low_rank_activation_aware_auto(
         reshaped = get_reshape(module)(module.weight.detach())
         aa = W @ reshaped
         svals = torch.linalg.svdvals(aa.float())  # ensure float for stability
-        energy = torch.cumsum(svals ** 2, 0)
+        energy = torch.cumsum(svals**2, 0)
         energy = energy / energy[-1]
         cum_energies.append(energy)
         ws.append(module.weight.detach())
@@ -622,9 +647,14 @@ def to_low_rank_activation_aware_auto(
 
     print("[LRA-AUTO] Selecting ranks (knapsack)…")
     import time
+
     start_time = time.time()
     selected_indices = maximize_energy(cum_energies, costs, total_budget)
-    print("[LRA-AUTO] Rank selection done. Time taken: {:.2f} seconds".format(time.time() - start_time))
+    print(
+        "[LRA-AUTO] Rank selection done. Time taken: {:.2f} seconds".format(
+            time.time() - start_time
+        )
+    )
 
     selected_indices_per_module = {
         name: sel for (name, _), sel in zip(modules_to_replace, selected_indices)
@@ -651,6 +681,7 @@ def to_low_rank_activation_aware_auto(
         whit_cache.clear()
 
     return model
+
 
 @torch.no_grad()
 def to_low_rank_activation_aware_auto(
@@ -722,16 +753,17 @@ def to_low_rank_activation_aware_auto(
         return fac
 
     # ---------- get (or build) activation cache ----------
-    if (
-        isinstance(data_or_cache, dict)
-        and {"acts", "outs", "len_dataset"} <= set(data_or_cache.keys())
+    if isinstance(data_or_cache, dict) and {"acts", "outs", "len_dataset"} <= set(
+        data_or_cache.keys()
     ):
         cache = data_or_cache
     else:
         cache = collect_activation_cache(model, data_or_cache, keys)
 
     acts, outs, len_dataset = cache["acts"], cache["outs"], cache["len_dataset"]
-    modules_to_replace = gather_submodules(model, should_do=keys_passlist_should_do(keys))
+    modules_to_replace = gather_submodules(
+        model, should_do=keys_passlist_should_do(keys)
+    )
 
     cum_energies, ws, out_shapes = [], [], []
 
@@ -759,7 +791,7 @@ def to_low_rank_activation_aware_auto(
             if keep_factors_in_mem:
                 fac_cache[name] = (U, S, V_T)
 
-        energy = torch.cumsum(S ** 2, 0)
+        energy = torch.cumsum(S**2, 0)
         energy = energy / energy[-1]
         cum_energies.append(energy)
 
@@ -774,17 +806,24 @@ def to_low_rank_activation_aware_auto(
 
     # ---------- build cost vectors ----------
     if metric == "rank":
-        costs = [torch.cumsum(torch.arange(1, len(e) + 1, device=e.device), 0) for e in cum_energies]
+        costs = [
+            torch.cumsum(torch.arange(1, len(e) + 1, device=e.device), 0)
+            for e in cum_energies
+        ]
         total_budget = sum(len(e) for e in cum_energies) * ratio_to_keep
     elif metric == "flops":
         make_cost = lambda w, o: (
-            generate_cost_flops_linear(w.shape, o) if len(o) in {2, 3} else generate_cost_flops_conv2d(w.shape, o)
+            generate_cost_flops_linear(w.shape, o)
+            if len(o) in {2, 3}
+            else generate_cost_flops_conv2d(w.shape, o)
         )
         costs = [make_cost(w, o) for w, o in zip(ws, out_shapes)]
         total_budget = sum(c[-1].item() for c in costs) * ratio_to_keep
     else:  # params
         make_cost = lambda w, o: (
-            generate_cost_params_linear(w.shape) if len(o) in {2, 3} else generate_cost_params_conv2d(w.shape)
+            generate_cost_params_linear(w.shape)
+            if len(o) in {2, 3}
+            else generate_cost_params_conv2d(w.shape)
         )
         costs = [make_cost(w, o) for w, o in zip(ws, out_shapes)]
         total_budget = sum(c[-1].item() for c in costs) * ratio_to_keep
@@ -793,6 +832,7 @@ def to_low_rank_activation_aware_auto(
 
     print("[LRA-AUTO] Selecting ranks (knapsack)…")
     import time
+
     t0 = time.time()
     selected_indices = maximize_energy(cum_energies, costs, total_budget)
     print(f"[LRA-AUTO] Rank selection done. ({time.time() - t0:.2f}s)")
@@ -801,7 +841,7 @@ def to_low_rank_activation_aware_auto(
 
     # ---------- replace modules ----------
     def factory_fn(name: str, module: nn.Module):
-        print(f"[LRA-AUTO] Replacing module '{name}' with low-rank version.")
+        # print(f"[LRA-AUTO] Replacing module '{name}' with low-rank version.")
         P, W = _load_whit(name)
         P, W = P.to(module.weight.dtype), W.to(module.weight.dtype)
 
@@ -817,17 +857,16 @@ def to_low_rank_activation_aware_auto(
             return factorize_linear_whitened(module, selector, P, W, factors=fac)
         if is_conv2d(module):
             return factorize_conv2d_whitened(module, selector, P, W, factors=fac)
-        
+
         torch.cuda.empty_cache()
         return module
 
     di = {name: module for name, module in modules_to_replace}
     del modules_to_replace
     del ws
-    replace_with_factory(
-        model, di, factory_fn
-    )
+    replace_with_factory(model, di, factory_fn)
     return model
+
 
 def get_rank_to_keep_from_rank_ratio(
     X: torch.tensor, S: torch.Tensor, rank_ratio: float
@@ -875,6 +914,7 @@ rank_to_keep_name_to_fn = {
     "params_ratio_to_keep": get_rank_to_keep_from_param_number_ratio,
 }
 
+
 def to_low_rank_activation_aware_manual(
     model: nn.Module,
     data_or_cache,
@@ -885,13 +925,14 @@ def to_low_rank_activation_aware_manual(
     if not inplace:
         model = copy.deepcopy(model)
 
-
     modules_to_replace = gather_submodules(
         model,
         should_do=keys_passlist_should_do(cfg_dict.keys()),
     )
 
-    if isinstance(data_or_cache, dict) and {"acts", "outs", "len_dataset"} <= set(data_or_cache.keys()):
+    if isinstance(data_or_cache, dict) and {"acts", "outs", "len_dataset"} <= set(
+        data_or_cache.keys()
+    ):
         cache = data_or_cache
     else:
         cache = collect_activation_cache(model, data_or_cache, cfg_dict.keys())
@@ -930,6 +971,7 @@ def to_low_rank_activation_aware_manual(
             )
         else:
             return module
+
     modules_to_replace = {name: module for name, module in modules_to_replace}
     replace_with_factory(model, modules_to_replace, factory_fn)
     return model
@@ -1033,7 +1075,9 @@ def to_low_rank_activation_aware_manual(
         should_do=keys_passlist_should_do(cfg_dict.keys()),
     )
 
-    if isinstance(data_or_cache, dict) and {"acts", "outs", "len_dataset"} <= set(data_or_cache.keys()):
+    if isinstance(data_or_cache, dict) and {"acts", "outs", "len_dataset"} <= set(
+        data_or_cache.keys()
+    ):
         cache = data_or_cache
     else:
         cache = collect_activation_cache(model, data_or_cache, cfg_dict.keys())
@@ -1184,20 +1228,31 @@ def to_low_rank_manual(
         should_do=keys_passlist_should_do(cfg_dict.keys()),
     )
 
-    
     def factory_fn(name, module):
         if isinstance(module, nn.Linear):
-            return factorize_linear(module, lambda W, U, S, V_T: get_rank_to_keep_from_rank_ratio(W, S, cfg_dict[name]["value"]))
+            return factorize_linear(
+                module,
+                lambda W, U, S, V_T: get_rank_to_keep_from_rank_ratio(
+                    W, S, cfg_dict[name]["value"]
+                ),
+            )
         elif isinstance(module, nn.Conv2d):
-            return factorize_conv2d(module, lambda W, U, S, V_T: get_rank_to_keep_from_rank_ratio(W, S, cfg_dict[name]["value"]))
+            return factorize_conv2d(
+                module,
+                lambda W, U, S, V_T: get_rank_to_keep_from_rank_ratio(
+                    W, S, cfg_dict[name]["value"]
+                ),
+            )
         else:
             return module
+
     replace_with_factory(
         model,
         {name: module for name, module in modules_to_replace},
         factory_fn,
     )
     return model
+
 
 def merge_low_rank_layers(
     model: nn.Module,
@@ -1209,8 +1264,14 @@ def merge_low_rank_layers(
         model,
         should_do=lambda mod, name: isinstance(mod, (LowRankLinear, LowRankConv2d)),
     )
+
     def factory_fn(name, module):
-        return module.to_linear() if isinstance(module, LowRankLinear) else module.to_conv2d()
+        return (
+            module.to_linear()
+            if isinstance(module, LowRankLinear)
+            else module.to_conv2d()
+        )
+
     replace_with_factory(
         model,
         {name: module for name, module in modules_to_merge},

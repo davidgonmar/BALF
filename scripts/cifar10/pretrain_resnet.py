@@ -35,8 +35,6 @@ def parse_args():
     return p.parse_args()
 
 
-
-
 def main():
     args = parse_args()
     seed_everything(args.seed)

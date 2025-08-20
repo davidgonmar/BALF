@@ -1,34 +1,32 @@
 import argparse
 import json
 from pathlib import Path
-
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 from torchvision import datasets, transforms
 from lib.utils import (
-    cifar10_mean,
-    cifar10_std,
     evaluate_vision_model,
     seed_everything,
     count_model_flops,
     get_all_convs_and_linears,
 )
 from lib.factorization.factorize import (
-    to_low_rank_activation_aware_auto,  # factorize model
+    to_low_rank_activation_aware_auto,
     to_low_rank_activation_aware_manual,
     to_low_rank_manual,
-    collect_activation_cache,  # use cached activations
+    collect_activation_cache,
 )
 from lib.utils.layer_fusion import (
     fuse_batch_norm_inference,
     fuse_conv_bn,
     get_conv_bn_fuse_pairs,
 )
-from lib.models import load_model
+import torchvision.models as models
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument("--model_name", required=True, choices=["resnet20", "resnet56"])
-parser.add_argument("--pretrained_path", required=True)
+parser.add_argument(
+    "--model_name", required=True, choices=["resnet18", "resnet34", "resnet50"]
+)
 parser.add_argument("--results_dir", required=True)
 parser.add_argument(
     "--mode",
@@ -36,43 +34,96 @@ parser.add_argument(
     choices=["flops_auto", "params_auto", "energy_act_aware", "energy"],
 )
 parser.add_argument("--seed", type=int, default=0)
+parser.add_argument("--train_dir", required=True)
+parser.add_argument("--val_dir", required=True)
+parser.add_argument("--batch_size_eval", type=int, default=256)
+parser.add_argument("--batch_size_cache", type=int, default=128)
+parser.add_argument("--subset_size", type=int, default=4096)
+parser.add_argument("--cache_file", type=str, default="activation_cache.pt")
+parser.add_argument("--force_recache", action="store_true")
 args = parser.parse_args()
 seed_everything(args.seed)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+model_dict = {
+    "resnet18": models.resnet18,
+    "resnet34": models.resnet34,
+    "resnet50": models.resnet50,
+}
+model = model_dict[args.model_name](pretrained=True).to(device)
 
-model = load_model(
-    args.model_name,
-    pretrained_path=args.pretrained_path,
-).to(device)
 
-transform = transforms.Compose(
-    [transforms.ToTensor(), transforms.Normalize(cifar10_mean, cifar10_std)]
+imagenet_mean = [0.485, 0.456, 0.406]
+imagenet_std = [0.229, 0.224, 0.225]
+
+eval_tf = transforms.Compose(
+    [
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=imagenet_mean, std=imagenet_std),
+    ]
+)
+train_tf = transforms.Compose(
+    [
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=imagenet_mean, std=imagenet_std),
+    ]
 )
 
-eval_ds = datasets.CIFAR10(root="data", train=False, transform=transform, download=True)
-eval_dl = DataLoader(eval_ds, batch_size=512, shuffle=False)
+eval_ds = datasets.ImageFolder(args.val_dir, transform=eval_tf)
+eval_dl = DataLoader(
+    eval_ds,
+    batch_size=args.batch_size_eval,
+    shuffle=False,
+    num_workers=8,
+    pin_memory=True,
+)
+# subset eval_dl to 1000 images
+eval_ds = Subset(eval_ds, torch.randperm(len(eval_ds))[:3000])
+eval_dl = DataLoader(
+    eval_ds,
+    batch_size=args.batch_size_eval,
+    shuffle=True,
+    num_workers=8,
+    pin_memory=True,
+)
 
-train_ds = datasets.CIFAR10(root="data", train=True, transform=transform, download=True)
-subset = torch.utils.data.Subset(train_ds, torch.randint(0, len(train_ds), (1024,)))
-train_dl = DataLoader(subset, batch_size=256, shuffle=True, drop_last=True)
+
+train_ds_full = datasets.ImageFolder(args.train_dir, transform=train_tf)
+if args.subset_size > 0 and args.subset_size < len(train_ds_full):
+    idx = torch.randint(0, len(train_ds_full), (args.subset_size,))
+    train_ds = Subset(train_ds_full, idx.tolist())
+else:
+    train_ds = train_ds_full
+train_dl = DataLoader(
+    train_ds,
+    batch_size=args.batch_size_cache,
+    shuffle=True,
+    drop_last=True,
+    num_workers=8,
+    pin_memory=True,
+)
 
 fuse_pairs = get_conv_bn_fuse_pairs(model)
-
 model_fused = fuse_conv_bn(
     model, fuse_pairs, fuse_impl=fuse_batch_norm_inference, inplace=False
 )
 
 baseline_metrics = evaluate_vision_model(model_fused, eval_dl)
 params_orig = sum(p.numel() for p in model_fused.parameters())
-flops_orig = count_model_flops(model_fused, (1, 3, 32, 32), formatted=False)
+flops_orig = count_model_flops(model_fused, (1, 3, 224, 224), formatted=False)
 
 print(
     f"[original] loss={baseline_metrics['loss']:.4f} acc={baseline_metrics['accuracy']:.4f} "
     f"params={params_orig} flops_total={flops_orig['total']}"
 )
 
+"""
+    """
 ratios_comp = [
     0.10,
     0.15,
@@ -117,13 +168,18 @@ ratios_energy = [
     0.99999,
     0.999999,
 ]
-layer_keys = [k for k in get_all_convs_and_linears(model)]
 
-# Build activation cache once, then reuse in the loop ---
-activation_cache = collect_activation_cache(model, train_dl, keys=layer_keys)
+layer_keys = [k for k in get_all_convs_and_linears(model)]
 
 base_dir = Path(args.results_dir)
 base_dir.mkdir(parents=True, exist_ok=True)
+cache_path = base_dir / args.cache_file
+
+if cache_path.exists() and not args.force_recache:
+    activation_cache = torch.load(cache_path, map_location="cpu")
+else:
+    activation_cache = collect_activation_cache(model, train_dl, keys=layer_keys)
+    torch.save(activation_cache, cache_path)
 
 results = []
 
@@ -135,7 +191,7 @@ for k in (
     if args.mode == "flops_auto" or args.mode == "params_auto":
         model_lr = to_low_rank_activation_aware_auto(
             model,
-            activation_cache,  # pass the cache instead of the dataloader
+            activation_cache,
             ratio_to_keep=k,
             inplace=False,
             keys=layer_keys,
@@ -165,7 +221,7 @@ for k in (
     )
 
     params_lr = sum(p.numel() for p in model_eval.parameters())
-    flops_raw_lr = count_model_flops(model_eval, (1, 3, 32, 32), formatted=False)
+    flops_raw_lr = count_model_flops(model_eval, (1, 3, 224, 224), formatted=False)
     eval_lr = evaluate_vision_model(model_eval.to(device), eval_dl)
 
     print(
@@ -175,18 +231,6 @@ for k in (
 
     ratio_dir = base_dir / args.mode
     ratio_dir.mkdir(parents=True, exist_ok=True)
-
-    model_path = ratio_dir / "model.pth"
-    torch.save(
-        {
-            "state_dict": model_lr.to("cpu").state_dict(),
-            "compression_ratio": k,
-            "mode": args.mode,
-            "model_name": args.model_name,
-            "seed": args.seed,
-        },
-        model_path,
-    )
 
     metrics_path = ratio_dir / "metrics.json"
     with metrics_path.open("w") as f:

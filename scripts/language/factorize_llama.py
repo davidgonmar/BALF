@@ -38,6 +38,7 @@ from contextlib import nullcontext
 # Helpers                                                                     #
 ###############################################################################
 
+
 class ContiguousSeqDataset(Dataset):
     """Return non‑overlapping fixed‑length chunks from a tokenised corpus."""
 
@@ -60,6 +61,7 @@ class ContiguousSeqDataset(Dataset):
 
 def collate(batch):
     return {k: torch.stack([x[k] for x in batch]) for k in batch[0]}
+
 
 @torch.no_grad()
 def perplexity(model, dataloader, device=None, ignore_inf=True):
@@ -85,7 +87,7 @@ def perplexity(model, dataloader, device=None, ignore_inf=True):
     model.to(device).eval()
 
     loss_fct = torch.nn.CrossEntropyLoss(reduction="none")
-    nll_tokens = []            # per-token negative log likelihoods
+    nll_tokens = []  # per-token negative log likelihoods
     total_tokens = 0
 
     for batch in dataloader:
@@ -95,12 +97,7 @@ def perplexity(model, dataloader, device=None, ignore_inf=True):
         if attn_mask is not None:
             attn_mask = attn_mask.to(device)
 
-
-        outputs = model(
-                input_ids=input_ids,
-                attention_mask=attn_mask,
-                use_cache=False
-            )
+        outputs = model(input_ids=input_ids, attention_mask=attn_mask, use_cache=False)
         logits = outputs.logits
 
         # NaN/Inf guard
@@ -112,14 +109,15 @@ def perplexity(model, dataloader, device=None, ignore_inf=True):
         shift_labels = input_ids[:, 1:].contiguous()
 
         loss = loss_fct(
-            shift_logits.view(-1, shift_logits.size(-1)),
-            shift_labels.view(-1)
+            shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1)
         )
         nll_tokens.append(loss)
         total_tokens += shift_labels.numel()
 
     if total_tokens == 0:
-        raise RuntimeError("No valid tokens processed ­— every batch had NaN/Inf logits?")
+        raise RuntimeError(
+            "No valid tokens processed ­— every batch had NaN/Inf logits?"
+        )
 
     # Concatenate per-token NLLs and average, just like ppl_eval
     mean_nll = torch.cat(nll_tokens, dim=0).mean()
@@ -132,17 +130,34 @@ def perplexity(model, dataloader, device=None, ignore_inf=True):
 
     return ppl
 
+
 ###############################################################################
 # Main                                                                        #
 ###############################################################################
+
 
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--model_name", required=True)
     p.add_argument("--cache_path", required=True)
     p.add_argument("--results_dir", required=True)
-    p.add_argument("--mode", choices=["flops_auto", "params_auto", "energy_act_aware", "rank_act_aware", "energy"], default="flops_auto")
-    p.add_argument("--ratio_to_keep", type=float, required=True, help="Fraction of parameters to KEEP in each linear layer (e.g. 0.8)")
+    p.add_argument(
+        "--mode",
+        choices=[
+            "flops_auto",
+            "params_auto",
+            "energy_act_aware",
+            "rank_act_aware",
+            "energy",
+        ],
+        default="flops_auto",
+    )
+    p.add_argument(
+        "--ratio_to_keep",
+        type=float,
+        required=True,
+        help="Fraction of parameters to KEEP in each linear layer (e.g. 0.8)",
+    )
     p.add_argument("--dataset", choices=["wikitext2", "ptb"], default="wikitext2")
     p.add_argument("--seq_len", type=int, default=2048)
     p.add_argument("--batch_size", type=int, default=4)
@@ -156,7 +171,9 @@ def main():
     # ------------------------------------------------------------------
     tok = AutoTokenizer.from_pretrained(args.model_name, use_fast=False)
 
-    model = AutoModelForCausalLM.from_pretrained(args.model_name, torch_dtype=torch.float32)
+    model = AutoModelForCausalLM.from_pretrained(
+        args.model_name, torch_dtype=torch.float32
+    )
     model.to("cuda").eval()
 
     # ------------------------------------------------------------------
@@ -165,21 +182,29 @@ def main():
     if args.dataset == "wikitext2":
         raw_texts = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")["text"]
     else:  # PTB validation
-        raw_texts = load_dataset("ptb_text_only", "penn_treebank", split="validation")["sentence"]
+        raw_texts = load_dataset("ptb_text_only", "penn_treebank", split="validation")[
+            "sentence"
+        ]
 
     # Tokenise entire split at once for deterministic chunking
     tok_ids = tok("\n\n".join(raw_texts), return_tensors="pt").input_ids.squeeze(0)
     eval_ds = ContiguousSeqDataset(tok_ids, args.seq_len)
-    eval_dl = DataLoader(eval_ds, batch_size=args.batch_size, shuffle=False, collate_fn=collate)
+    eval_dl = DataLoader(
+        eval_ds, batch_size=args.batch_size, shuffle=False, collate_fn=collate
+    )
 
     # ------------------------------------------------------------------
     # Baseline metrics
     # ------------------------------------------------------------------
     ppl_baseline = perplexity(model, eval_dl)
-    print(f"[baseline] ppl {ppl_baseline:.2f}  seq_len {args.seq_len}  batch_size {args.batch_size}")
+    print(
+        f"[baseline] ppl {ppl_baseline:.2f}  seq_len {args.seq_len}  batch_size {args.batch_size}"
+    )
     params_baseline = sum(p.numel() for p in model.parameters())
-    flops_baseline = 10 # count_model_flops(model, (1, args.seq_len), dtype=torch.long, formatted=False)["total"]
-    print(f"[baseline] ppl {ppl_baseline:.2f}  params {params_baseline/1e6:.2f}M  flops {flops_baseline/1e9:.2f}B")
+    flops_baseline = 10  # count_model_flops(model, (1, args.seq_len), dtype=torch.long, formatted=False)["total"]
+    print(
+        f"[baseline] ppl {ppl_baseline:.2f}  params {params_baseline/1e6:.2f}M  flops {flops_baseline/1e9:.2f}B"
+    )
 
     # ------------------------------------------------------------------
     # Prepare layer list (skip embeddings & lm_head)
@@ -203,16 +228,22 @@ def main():
             metric=metric,
         )
     elif args.mode in {"energy_act_aware", "energy"}:
-        cfg_dict = {k: {"name": "svals_energy_ratio_to_keep", "value": args.ratio_to_keep} for k in layer_keys}
+        cfg_dict = {
+            k: {"name": "svals_energy_ratio_to_keep", "value": args.ratio_to_keep}
+            for k in layer_keys
+        }
         if args.mode == "energy_act_aware":
-            model_lr = to_low_rank_activation_aware_manual(model, cache, cfg_dict=cfg_dict)
+            model_lr = to_low_rank_activation_aware_manual(
+                model, cache, cfg_dict=cfg_dict
+            )
         else:
             model_lr = to_low_rank_manual(model, cfg_dict=cfg_dict)
     else:
-        cfg_dict = {k: {"name": "rank_ratio_to_keep", "value": args.ratio_to_keep} for k in layer_keys}
-        model_lr = to_low_rank_activation_aware_manual(
-            model, cache, cfg_dict=cfg_dict
-        )
+        cfg_dict = {
+            k: {"name": "rank_ratio_to_keep", "value": args.ratio_to_keep}
+            for k in layer_keys
+        }
+        model_lr = to_low_rank_activation_aware_manual(model, cache, cfg_dict=cfg_dict)
     del cache
     torch.cuda.empty_cache()
 
@@ -223,7 +254,7 @@ def main():
     # Compressed metrics
     # ------------------------------------------------------------------
     params_compressed = sum(p.numel() for p in model_lr.parameters())
-    flops_compressed = 10 # count_model_flops(model_lr, (1, args.seq_len), dtype=torch.long, formatted=False)["total"]
+    flops_compressed = 10  # count_model_flops(model_lr, (1, args.seq_len), dtype=torch.long, formatted=False)["total"]
     ppl_compressed = perplexity(model_lr, eval_dl)
 
     print(

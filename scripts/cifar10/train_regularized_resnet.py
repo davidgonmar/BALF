@@ -15,7 +15,6 @@ from lib.utils import cifar10_mean, cifar10_std, AverageMeter, seed_everything
 from lib.factorization.training import SingularValsRegularizer, BatchWhiteningShrinker
 
 
-
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--data-root", type=str, default="./data")
@@ -38,7 +37,6 @@ def parse_args():
     p.add_argument("--num-workers", type=int, default=8)
     p.add_argument("--seed", type=int, default=0)
     return p.parse_args()
-
 
 
 def main():
@@ -124,18 +122,18 @@ def main():
         ):
             inputs = inputs.to(device)
             targets = targets.to(device)
-            #shrinker.set_data(inputs)
+            # shrinker.set_data(inputs)
             optimizer.zero_grad(set_to_none=True)
             outputs = model(inputs)
             loss = criterion(outputs, targets)
             reg_loss = regularizer.loss()
             (loss + args.reg_weight * reg_loss).backward()
             optimizer.step()
-            #shrinker.step()
+            # shrinker.step()
             bs = targets.size(0)
             train_loss_meter.update(loss.item(), bs)
             reg_loss_meter.update(reg_loss.item(), bs)
-    
+
         model.eval()
         val_loss_meter = AverageMeter()
         val_acc_meter = AverageMeter()

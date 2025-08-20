@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 
 
-
 class LowRankLinear(nn.Module):
     def __init__(
         self, in_features: int, out_features: int, rank: int, bias: bool = True
@@ -62,7 +61,8 @@ class LowRankConv2d(nn.Module):
         assert keyword in {"w0", "w1"}
         w = (
             w.permute(1, 2, 3, 0).reshape(
-                self.input_channels * self.kernel_size[0] * self.kernel_size[1], self.rank
+                self.input_channels * self.kernel_size[0] * self.kernel_size[1],
+                self.rank,
             )
             if keyword == "w0"
             else w.permute(1, 0, 2, 3).reshape(self.rank, self.out_channels)
