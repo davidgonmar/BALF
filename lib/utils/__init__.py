@@ -20,6 +20,7 @@ from .general import (
 )
 
 
+@torch.no_grad()
 def evaluate_vision_model(
     model: torch.nn.Module, dataloader: torch.utils.data.DataLoader, eval=True
 ) -> Dict[str, float]:

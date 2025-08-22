@@ -97,8 +97,6 @@ def fuse_batch_norm_inference(
             kernel_size=(1, 1),
             stride=1,
             padding=0,
-            dilation=conv.dilation,
-            groups=conv.groups,
             bias=True,
             device=conv.w1.device,
             dtype=conv.w1.dtype,

@@ -43,7 +43,11 @@ class LowRankConv2d(nn.Module):
         super(LowRankConv2d, self).__init__()
         H_k = kernel_size[0] if isinstance(kernel_size, tuple) else kernel_size
         W_k = kernel_size[1] if isinstance(kernel_size, tuple) else kernel_size
-        self.w0 = nn.Parameter(torch.randn(rank, in_channels, H_k, W_k))
+        assert in_channels % groups == 0
+        assert out_channels % groups == 0
+        self.w0 = nn.Parameter(
+            torch.randn(rank * groups, in_channels // groups, H_k, W_k)
+        )
         self.w1 = nn.Parameter(torch.randn(out_channels, rank, 1, 1))
         self.bias = nn.Parameter(torch.randn(out_channels)) if bias else None
         self.stride = stride
@@ -70,24 +74,30 @@ class LowRankConv2d(nn.Module):
         return w
 
     def forward(self, x: torch.Tensor):
-        w0, w1 = self.w0, self.w1
+        # stage 1: spatial conv to rank per group
         conv_out = torch.nn.functional.conv2d(
             x,
-            w0,
+            self.w0,
+            bias=None,
             stride=self.stride,
             padding=self.padding,
             dilation=self.dilation,
             groups=self.groups,
-        )  # shape (batch, rank, h_out, w_out)
-        h_out, w_out = conv_out.shape[2], conv_out.shape[3]
-        linear_out = torch.nn.functional.linear(
-            conv_out.permute(0, 2, 3, 1).reshape(-1, self.rank),
-            w1.reshape(self.out_channels, self.rank),
+        )  # (B, rank*groups, H, W)
+        # print(conv_out.shape, self.w0.shape, self.w1.shape)
+
+        # stage 2: grouped 1x1 to mix the rank channels within each group
+        y = torch.nn.functional.conv2d(
+            conv_out,
+            self.w1,
             bias=self.bias,
-        )  # shape (batch * h_out * w_out, out_channels)
-        return linear_out.reshape(-1, h_out, w_out, self.out_channels).permute(
-            0, 3, 1, 2
-        )
+            stride=1,
+            padding=0,
+            dilation=1,
+            groups=self.groups,
+        )  # (B, out_channels, H, W)
+        # print(y.shape, self.w0.shape, self.w1.shape)
+        return y
 
     def __repr__(self):
         return f"LowRankConv2d(in_channels={self.input_channels}, out_channels={self.out_channels}, kernel_size={self.kernel_size}, rank={self.rank}, stride={self.stride}, padding={self.padding}, dilation={self.dilation}, groups={self.groups}, bias={self.bias is not None})"

@@ -25,7 +25,9 @@ import torchvision.models as models
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument(
-    "--model_name", required=True, choices=["resnet18", "resnet34", "resnet50"]
+    "--model_name",
+    required=True,
+    choices=["resnet18", "resnet34", "resnet50", "mobilenet_v2"],
 )
 parser.add_argument("--results_dir", required=True)
 parser.add_argument(
@@ -42,6 +44,7 @@ parser.add_argument("--subset_size", type=int, default=4096)
 parser.add_argument("--cache_file", type=str, default="activation_cache.pt")
 parser.add_argument("--force_recache", action="store_true")
 args = parser.parse_args()
+# args.force_recache = True
 seed_everything(args.seed)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -50,6 +53,7 @@ model_dict = {
     "resnet18": models.resnet18,
     "resnet34": models.resnet34,
     "resnet50": models.resnet50,
+    "mobilenet_v2": models.mobilenet_v2,
 }
 model = model_dict[args.model_name](pretrained=True).to(device)
 
@@ -94,6 +98,7 @@ eval_dl = DataLoader(
 
 
 train_ds_full = datasets.ImageFolder(args.train_dir, transform=train_tf)
+
 if args.subset_size > 0 and args.subset_size < len(train_ds_full):
     idx = torch.randint(0, len(train_ds_full), (args.subset_size,))
     train_ds = Subset(train_ds_full, idx.tolist())
@@ -125,23 +130,23 @@ print(
 """
     """
 ratios_comp = [
-    0.10,
+    0.1,
     0.15,
-    0.20,
+    0.2,
     0.25,
-    0.30,
+    0.3,
     0.35,
-    0.40,
+    0.4,
     0.45,
-    0.50,
+    0.5,
     0.55,
-    0.60,
+    0.6,
     0.65,
-    0.70,
+    0.7,
     0.75,
-    0.80,
+    0.8,
     0.85,
-    0.90,
+    0.9,
     0.95,
     1.00,
 ]
@@ -169,8 +174,11 @@ ratios_energy = [
     0.999999,
 ]
 
+fuse_conv_bn = lambda *args, **kwargs: args[0]
 layer_keys = [k for k in get_all_convs_and_linears(model)]
-
+# remove linear
+layer_keys = [k for k in layer_keys if "linear" not in k and "fc" not in k]
+# print(layer_keys)
 base_dir = Path(args.results_dir)
 base_dir.mkdir(parents=True, exist_ok=True)
 cache_path = base_dir / args.cache_file
@@ -216,11 +224,14 @@ for k in (
             },
             inplace=False,
         )
+    # print(model_lr)
     model_eval = fuse_conv_bn(
         model_lr, fuse_pairs, fuse_impl=fuse_batch_norm_inference, inplace=False
     )
-
+    # print(model_eval)
+    # print(torch.cuda.memory_allocated() / 1e6, "MB allocated after model eval")
     params_lr = sum(p.numel() for p in model_eval.parameters())
+    # print(params_lr / params_orig)
     flops_raw_lr = count_model_flops(model_eval, (1, 3, 224, 224), formatted=False)
     eval_lr = evaluate_vision_model(model_eval.to(device), eval_dl)
 
