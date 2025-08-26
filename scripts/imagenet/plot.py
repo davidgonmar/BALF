@@ -44,9 +44,17 @@ def load_results(path):
         return None
 
 
-def plot_tradeoff(ax, x_vals, y_vals, label, marker):
+def plot_tradeoff(ax, x_vals, y_vals, label, marker, linestyle, alpha=0.9):
     """Plot a tradeoff curve on the given Axes."""
-    ax.plot(x_vals, y_vals, marker=marker, label=label)
+    ax.plot(
+        x_vals,
+        y_vals,
+        marker=marker,
+        label=label,
+        linestyle=linestyle,
+        markerfacecolor="none",  # hollow markers to reveal overlaps
+        alpha=alpha,  # slight transparency
+    )
 
 
 if __name__ == "__main__":
@@ -98,31 +106,39 @@ if __name__ == "__main__":
         "energy_act_aware": "^",
     }
 
-    # Iterate through networks and metrics (flops vs params)
+    # Iterate through networks and merge both metrics into a single plot with twin x-axes
     for net_name, methods in networks.items():
+        fig, ax = plt.subplots(figsize=FIGSIZE)  # bottom axis: FLOPs
+        ax_top = ax.twiny()  # top axis: Params
+        plotted_any = False
+
+        # Track limits separately so each x-axis fits its own data
+        flops_x_all, params_x_all = [], []
+
         for metric in ["flops", "params"]:
-            fig, ax = plt.subplots(figsize=FIGSIZE)
-
-            plotted_any = False  # Flag to check if any data was plotted for this metric
-
             for method in [f"{metric}_auto", "energy", "energy_act_aware"]:
-                # Ensure correct key names for params vs flops key
-                # The 'method' variable already holds the correct key name, e.g., 'flops_auto'
-                results = methods.get(method)  # Use .get() for safe access
-
+                results = methods.get(method)
                 if results is not None:
                     x_key = f"{metric}_ratio"
-                    x_vals = [
-                        r[x_key] for r in results if x_key in r
-                    ]  # Ensure key exists in individual result dict
-                    y_vals = [
-                        r["accuracy"] for r in results if "accuracy" in r
-                    ]  # Ensure key exists
+                    x_vals = [r[x_key] for r in results if x_key in r]
+                    y_vals = [r["accuracy"] for r in results if "accuracy" in r]
 
                     if x_vals and y_vals and len(x_vals) == len(y_vals):
+                        linestyle = "--" if metric == "flops" else "-"
+                        target_ax = ax if metric == "flops" else ax_top
                         plot_tradeoff(
-                            ax, x_vals, y_vals, method, markers.get(method, "o")
-                        )  # Fallback marker
+                            target_ax,
+                            x_vals,
+                            y_vals,
+                            method,
+                            markers.get(method, "o"),
+                            linestyle,
+                            alpha=0.9,
+                        )
+                        if metric == "flops":
+                            flops_x_all.extend(x_vals)
+                        else:
+                            params_x_all.extend(x_vals)
                         plotted_any = True
                     else:
                         print(
@@ -133,33 +149,56 @@ if __name__ == "__main__":
                         f"Skipping '{method}' for {net_name} {metric} plot as results are unavailable."
                     )
 
-            if not plotted_any:
-                print(
-                    f"No data available to plot for {net_name}: Accuracy vs {metric.capitalize()} Ratio. Skipping plot generation."
-                )
-                plt.close(fig)  # Close the empty figure
-                continue  # Move to the next metric/network
-
-            # Remove top/right spines for a cleaner look
-            for spine in ["top", "right"]:
-                ax.spines[spine].set_visible(False)
-
-            # Add light dashed grid lines on y-axis
-            ax.grid(axis="y", linestyle="--", linewidth=0.5)
-            ax.yaxis.set_major_locator(MultipleLocator(0.1))  # Adjust y-axis ticks
-
-            # Labeling
-            xlabel = "FLOPs Ratio" if metric == "flops" else "Params Ratio"
-            ax.set(
-                xlabel=xlabel,
-                ylabel="Accuracy",
-                title=f"{net_name.capitalize()}: Accuracy vs {xlabel}",
+        if not plotted_any:
+            print(
+                f"No data available to plot for {net_name}: merged Accuracy vs FLOPs/Params Ratio. Skipping plot generation."
             )
-            ax.legend(frameon=False, loc="lower right")
-            plt.tight_layout(pad=0.2)  # Tight layout for compact figures
+            plt.close(fig)
+            continue
 
-            # Save PDF
-            out_file = os.path.join(args.output_dir, f"{net_name}_acc_vs_{metric}.pdf")
-            fig.savefig(out_file)
-            plt.close(fig)  # Close the figure to free memory
-            print(f"Saved {out_file}")
+        # Set independent x-limits for each axis (so curves don't overlap awkwardly)
+        if flops_x_all:
+            ax.set_xlim(min(flops_x_all), max(flops_x_all))
+        if params_x_all:
+            ax_top.set_xlim(min(params_x_all), max(params_x_all))
+
+        # Clean look
+        for spine in ["top", "right"]:
+            ax.spines[spine].set_visible(False)
+        # Keep the top axis spine visible so users notice the second scale
+        ax_top.spines["top"].set_visible(True)
+        ax_top.spines["right"].set_visible(False)
+
+        # Grid on y only
+        ax.grid(axis="y", linestyle="--", linewidth=0.5)
+        ax.yaxis.set_major_locator(MultipleLocator(0.1))
+
+        # Labels
+        ax.set(
+            xlabel="FLOPs Ratio",
+            ylabel="Accuracy",
+        )
+        ax_top.set_xlabel("Params Ratio")
+        ax.set_title(f"{net_name.capitalize()}: Accuracy vs FLOPs/Params Ratio")
+
+        # One legend pulling from both axes
+        handles, labels = [], []
+        for a in (ax, ax_top):
+            h, l = a.get_legend_handles_labels()
+            handles.extend(h)
+            labels.extend(l)
+        # Remove duplicates while preserving order
+        seen = set()
+        uniq = [
+            (h, l) for h, l in zip(handles, labels) if not (l in seen or seen.add(l))
+        ]
+        if uniq:
+            ax.legend(*zip(*uniq), frameon=False, loc="lower right")
+
+        plt.tight_layout(pad=0.2)
+        out_file = os.path.join(
+            args.output_dir, f"{net_name}_acc_vs_flops_params_merged.pdf"
+        )
+        fig.savefig(out_file)
+        plt.close(fig)
+        print(f"Saved {out_file}")

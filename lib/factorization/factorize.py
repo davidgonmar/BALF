@@ -75,7 +75,7 @@ def maximize_energy(
 
 
 def maximize_energy(
-    cum_energy_vectors, cumulative_cost_vectors, total_cost, minimize=False
+    cum_energy_vectors, cumulative_cost_vectors, total_cost, minimize=False, n_iters=50
 ):
     """
     Solve the multiple-choice knapsack problem via Lagrangian relaxation.
@@ -122,7 +122,7 @@ def maximize_energy(
     if cost0 <= total_cost:
         return [j + 1 for j in sel0]
 
-    for _ in range(50):
+    for _ in range(n_iters):
         mid = 0.5 * (low + high)
         _, cost_mid, _ = compute_selection(mid)
         if cost_mid > total_cost:
@@ -135,7 +135,9 @@ def maximize_energy(
     return [j + 1 for j in sel_final]
 
 
-def generate_cost_flops_linear(weight_shape: tuple, out_shape: tuple) -> torch.Tensor:
+def generate_cost_flops_linear(
+    weight_shape: tuple, out_shape: tuple, module
+) -> torch.Tensor:
     # A decomposed linear layer has shapes W_0 in [O, R] and W_1 in [R, I], input in [B, I] and output in [B, O]
     # flops(R) = min(B * R * (I + O), B * I * O)
     R = torch.arange(1, min(weight_shape[0], weight_shape[1]) + 1, 1)
@@ -496,6 +498,7 @@ def to_low_rank_activation_aware_auto(
     keep_whiteners_in_mem: bool = False,
     load_existing: bool = True,
     keep_factors_in_mem: bool = False,
+    n_iters: int = 50,
 ):
     if not 0 < ratio_to_keep <= 1:
         raise ValueError("ratio_to_keep must be in (0, 1].")
@@ -613,7 +616,7 @@ def to_low_rank_activation_aware_auto(
             else generate_cost_flops_conv2d(w.shape, o, mod)
         )
         costs = [
-            make_cost(w, o, mod)
+            make_cost(w, o, mod[1])
             for w, o, mod in zip(ws, out_shapes, modules_to_replace)
         ]
         total_budget = sum(c[-1].item() for c in costs) * ratio_to_keep
@@ -632,7 +635,9 @@ def to_low_rank_activation_aware_auto(
     import time
 
     t0 = time.time()
-    selected_indices = maximize_energy(cum_energies, costs, total_budget)
+    selected_indices = maximize_energy(
+        cum_energies, costs, total_budget, n_iters=n_iters
+    )
     print(f"[LRA-AUTO] Rank selection done. ({time.time() - t0:.2f}s)")
 
     selected_per_mod = {n: s for (n, _), s in zip(modules_to_replace, selected_indices)}
