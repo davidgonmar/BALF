@@ -1,27 +1,34 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
 # Directory of this script
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../" && pwd)"
 # Root of the project (two levels up)
-ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-# Paths to JSON results
-RES18_FLOPS="${ROOT_DIR}/results/imagenet/resnet18/factorized_posttrain/flops_auto/results.json"
-RES18_PARAMS="${ROOT_DIR}/results/imagenet/resnet18/factorized_posttrain/params_auto/results.json"
-RES18_ENERGY="${ROOT_DIR}/results/imagenet/resnet18/factorized_posttrain/energy/results.json"
-RES18_ENERGY_ACT_AWARE="${ROOT_DIR}/results/imagenet/resnet18/factorized_posttrain/energy_act_aware/results.json"
+# Path to the single-figure plotting script
+PLOT_SCRIPT="${SCRIPT_DIR}/plot_acc_vs_complexity.py"
 
 # Output directory for plots
 OUTPUT_DIR="${ROOT_DIR}/results/imagenet/plots"
 mkdir -p "${OUTPUT_DIR}"
 
-# Run the plotting script
-python "${SCRIPT_DIR}/plot.py" \
-  --res18_flops "${RES18_FLOPS}" \
-  --res18_params "${RES18_PARAMS}" \
-  --res18_energy "${RES18_ENERGY}" \
-  --res18_energy_act_aware "${RES18_ENERGY_ACT_AWARE}" \
+echo "=== Plotting ResNet18 (single figure) ==="
+python "${PLOT_SCRIPT}" \
+  --model_name resnet18 \
+  --flops_json "${ROOT_DIR}/results/imagenet/resnet18/factorized_posttrain/flops_auto/results.json" \
+  --params_json "${ROOT_DIR}/results/imagenet/resnet18/factorized_posttrain/params_auto/results.json" \
+  --energy_json "${ROOT_DIR}/results/imagenet/resnet18//factorized_posttrain/energy/results.json" \
+  --energy_act_aware_json "${ROOT_DIR}/results/imagenet/resnet18/factorized_posttrain/energy_act_aware/results.json" \
+  --output_dir "${OUTPUT_DIR}"
+
+echo "=== Plotting MobileNetV2 (single figure) ==="
+python "${PLOT_SCRIPT}" \
+  --model_name mobilenetv2 \
+  --flops_json "${ROOT_DIR}/results/imagenet/mobilenet_v2/factorized_posttrain/flops_auto/results.json" \
+  --params_json "${ROOT_DIR}/results/imagenet/mobilenet_v2/factorized_posttrain/params_auto/results.json" \
+  --energy_json "${ROOT_DIR}/results/imagenet/mobilenet_v2/factorized_posttrain/energy/results.json" \
+  --energy_act_aware_json "${ROOT_DIR}/results/imagenet/mobilenet_v2/factorized_posttrain/energy_act_aware/results.json" \
   --output_dir "${OUTPUT_DIR}"
 
 echo "Plots saved in ${OUTPUT_DIR}."

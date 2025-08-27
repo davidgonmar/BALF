@@ -204,6 +204,7 @@ for k in (
             inplace=False,
             keys=layer_keys,
             metric="flops" if args.mode == "flops_auto" else "params",
+            save_dir="./svd-cache/" + args.model_name,
         )
     elif args.mode == "energy_act_aware":
         model_lr = to_low_rank_activation_aware_manual(
@@ -214,6 +215,7 @@ for k in (
                 for kk in layer_keys
             },
             inplace=False,
+            save_dir="./svd-cache/" + args.model_name,
         )
     elif args.mode == "energy":
         model_lr = to_low_rank_manual(

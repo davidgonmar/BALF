@@ -2,12 +2,12 @@
 set -euo pipefail
 
 # Directory of this script
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../" && pwd)"
 # Root of the project (two levels up)
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 # Path to the single-figure plotting script
-PLOT_SCRIPT="${SCRIPT_DIR}/plot.py"
+PLOT_SCRIPT="${SCRIPT_DIR}/plot_acc_vs_complexity.py"
 
 # Output directory for plots
 OUTPUT_DIR="${ROOT_DIR}/results/cifar10/plots"

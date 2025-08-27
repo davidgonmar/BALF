@@ -15,64 +15,6 @@ import math
 import numpy as np
 from pathlib import Path
 
-"""
-def maximize_energy(
-    cum_energy_vectors, cumulative_cost_vectors, total_cost, minimize=False
-):  
-    
-    print("start")
-    print([len(v) for v in cum_energy_vectors])
-    # We are given N vectors of cumulative energies and of cumulative vectors. We want to, by selecting a (cumulative)
-    # subset of indices from each vector (cumulative in the sense that if j is chosen, all(j' < j) are also chosen), maximize
-    # the sum of energies at the selected indices such that the sum of the cumulative costs at the selected indices is less than or equal to the total cost.
-
-    # Let x_{i, j} be a binary variable indicating whether the j-th index in the i-th vector is selected.
-    # Then, we want to maximize sum_{i, j} x_{i, j} * cum_energy_vectors[i][j] subject to the constraints:
-    # 1. sum_{j} x_{i, j} = 1 for all i
-    # 2. sum_{i, j} j * x_{i, j} * cost_vectors[i][j] <= total_cost
-
-    prob = (
-        pulp.LpProblem("MaximizeEnergy", pulp.LpMaximize)
-        if not minimize
-        else pulp.LpProblem("MinimizeEnergy", pulp.LpMinimize)
-    )
-
-    selection_vars = {}
-    for vec_idx, vec in enumerate(cum_energy_vectors):
-        for idx in range(len(vec)):
-            selection_vars[(vec_idx, idx)] = pulp.LpVariable(
-                f"x_{vec_idx}_{idx}", cat="Binary"
-            )
-    prob += pulp.lpSum(
-        selection_vars[(vec_idx, idx)] * cum_energy_vectors[vec_idx][idx].item()
-        for vec_idx, vec in enumerate(cum_energy_vectors)
-        for idx in range(len(vec))
-    )
-
-    prob += (
-        pulp.lpSum(
-            selection_vars[(vec_idx, idx)]
-            * cumulative_cost_vectors[vec_idx][idx].item()
-            for vec_idx, vec in enumerate(cum_energy_vectors)
-            for idx in range(len(vec))
-        )
-        <= total_cost
-    )
-    for vec_idx, vec in enumerate(cum_energy_vectors):
-        prob += (
-            pulp.lpSum(selection_vars[(vec_idx, idx)] for idx in range(len(vec))) == 1
-        )
-
-    prob.solve(pulp.PULP_CBC_CMD(msg=False, timeLimit=60))
-
-    selected_indices = {}
-    for vec_idx, vec in enumerate(cum_energy_vectors):
-        sel = [pulp.value(selection_vars[(vec_idx, idx)]) for idx in range(len(vec))]
-        selected_indices[vec_idx] = torch.argmax(torch.tensor(sel)).item() + 1
-    print("end")
-    return [selected_indices[i] for i in range(len(selected_indices))]
-"""
-
 
 def maximize_energy(
     cum_energy_vectors, cumulative_cost_vectors, total_cost, minimize=False, n_iters=50
@@ -147,43 +89,23 @@ def generate_cost_flops_linear(
 
 
 def generate_cost_flops_conv2d(filter_shape: tuple, out_shape: tuple, module):
-    if module.groups == 1 or True:
-        # A factorized convolution has shape
-        # W_0 in [R, C_in, H_k, W_k] and W_1 in [C_out, R, 1, 1]
-        # flops_1(R) = B * R * H_out * W_out * C_in * H_k * W_k + B * C_out * R * H_out * W_out = B * R * H_out * W_out * (C_in * H_k * W_k + C_out)
-        # flops_2(R) = B * C_out * H_out * W_out * C_in * H_k * W_k
-        # flops(R) = min(flops_1(R), flops_2(R))
-        R = torch.arange(
-            1,
-            min(filter_shape[0], filter_shape[1] * filter_shape[2] * filter_shape[3])
-            + 1,
-            1,
-        )
-        C_out, C_in, H_k, W_k = filter_shape
-        B, H_out, W_out = out_shape[0], out_shape[2], out_shape[3]
-        return B * torch.minimum(
-            R * H_out * W_out * (C_in * H_k * W_k + C_out),
-            torch.tensor(C_out * H_out * W_out * H_k * W_k * C_in),
-        )
-    else:
-        grps = module.groups
-        # A grouped convolution has shape
-        # W_0 in [R * groups, C_in/groups, H_k, W_k] and W_1 in [C_out, R, 1, 1]
-        # flops_1(R) = (H_k * W_k * H_out * R * groups * C_in/groups) * groups
-        # flops(R) = min(flops_1(R), flops_2(R))
-        R = torch.arange(
-            1,
-            min(filter_shape[0], filter_shape[1] * filter_shape[2] * filter_shape[3])
-            + 1,
-            1,
-        )
-        C_out, C_in_by_grp, H_k, W_k = filter_shape
-        B, H_out, W_out = out_shape[0], out_shape[2], out_shape[3]
-        G = module.groups
-        return B * torch.minimum(
-            R * H_out * W_out * (C_in * H_k * W_k + C_out // G),
-            torch.tensor(C_out // G * H_out * W_out * H_k * W_k * C_in),
-        )
+    # this holds regardless of groups, by setting C_i -> C_i / groups
+    # A factorized convolution has shape
+    # W_0 in [R, C_in, H_k, W_k] and W_1 in [C_out, R, 1, 1]
+    # flops_1(R) = B * R * H_out * W_out * C_in * H_k * W_k + B * C_out * R * H_out * W_out = B * R * H_out * W_out * (C_in * H_k * W_k + C_out)
+    # flops_2(R) = B * C_out * H_out * W_out * C_in * H_k * W_k
+    # flops(R) = min(flops_1(R), flops_2(R))
+    R = torch.arange(
+        1,
+        min(filter_shape[0], filter_shape[1] * filter_shape[2] * filter_shape[3]) + 1,
+        1,
+    )
+    C_out, C_in, H_k, W_k = filter_shape
+    B, H_out, W_out = out_shape[0], out_shape[2], out_shape[3]
+    return B * torch.minimum(
+        R * H_out * W_out * (C_in * H_k * W_k + C_out),
+        torch.tensor(C_out * H_out * W_out * H_k * W_k * C_in),
+    )
 
 
 def generate_cost_params_linear(weight_shape: tuple) -> torch.Tensor:
@@ -256,6 +178,8 @@ def get_factors(U, S, V_T):
 
 
 def should_do_low_rank(W, rank):
+    if W.dim() == 3:
+        W = W[0]
     # it can be proved that rank is memory efficient <=> rank is compute efficient
     m, n = W.shape
     cost_base = m * n
@@ -357,7 +281,7 @@ def factorize_conv2d_whitened(
 
     # print(f"U shape: {U.shape}, S shape: {S.shape}, V_T shape: {V_T.shape}")
     rank = get_rank(W, U, S, V_T)
-    if False and not should_do_low_rank(reshaped, rank):
+    if not should_do_low_rank(reshaped, rank):
         return module
     U, S, V_T = crop_svd(
         U, S, V_T, rank
@@ -595,7 +519,7 @@ def to_low_rank_activation_aware_auto(
             if keep_factors_in_mem:
                 fac_cache[name] = (U, S, V_T)
 
-        energy = torch.cumsum((S**2).sum(0), 0)
+        energy = torch.cumsum((S**2), 1).sum(0)
         energy = energy / energy[-1]
         cum_energies.append(energy)
 
@@ -695,6 +619,9 @@ def get_rank_to_keep_from_energy_ratio(
     X: torch.Tensor, S: torch.Tensor, energy_ratio: float
 ) -> int:
     assert 0.0 <= energy_ratio <= 1.0
+    # TODO -- unify
+    if S.ndim == 1:
+        S = S.unsqueeze(0)
     sq = S.pow(2).sum(0)
     cum_energy = sq.cumsum(dim=0)
     total_energy = cum_energy[-1]
@@ -861,7 +788,7 @@ def to_low_rank_activation_aware_manual(
 
         def selector(*args):
             ret = rank_to_keep_name_to_fn[rule["name"]](module.weight, S, rule["value"])
-            print(ret, rule["name"], rule["value"])
+            # print(ret, rule["name"], rule["value"])
             return ret
 
         # Actual replacement -----------------------------------------
@@ -907,38 +834,69 @@ def factorize_linear(module, get_rank: Callable, factors=None):
     return low_rank_linear
 
 
-def factorize_conv2d(module, get_rank: Callable, factors=None):
+def factorize_conv2d(module: nn.Conv2d, get_rank: Callable, factors=None):
+    """
+    Low-rank factorization of a Conv2d without whitening, but with full support for grouped convolutions.
+    Mirrors factorize_conv2d_whitened's grouping/reshaping conventions.
+
+    Given weight W of shape (C_out, C_in/groups, H_k, W_k), we reshape per-group to
+    (groups, D, C_out_per_group) with D = (C_in/groups) * H_k * W_k,
+    perform a batched SVD, crop to the chosen rank, and map back to the LowRankConv2d
+    parameters:
+      w0: (rank * groups, C_in/groups, H_k, W_k)
+      w1: (C_out, rank, 1, 1)
+    """
     W = module.weight
-    C_o, C_i, H_k, W_k = W.shape
-    reshaped = W.reshape(C_o, C_i * H_k * W_k).T
+    C_o, C_i_by_grp, H_k, W_k = W.shape
+    groups = module.groups
+
+    # Reshape to (G, D, C_out_per_group) where D = C_i_by_grp * H_k * W_k
+    reshaped = W.reshape(groups, C_o // groups, C_i_by_grp * H_k * W_k).permute(0, 2, 1)
+
+    # Batched SVD
     if factors is None:
-        U, S, V_T = decompose_params(reshaped)
+        U, S, V_T = decompose_params(reshaped)  # supports batched inputs
     else:
         U, S, V_T = factors
+
+    # Decide rank and early exit if not beneficial
     rank = get_rank(W, U, S, V_T)
     if not should_do_low_rank(reshaped, rank):
         return module
-    U, S, V_T = crop_svd(
-        U, S, V_T, rank
-    )  # [C_i * H_k * W_k, rank], [rank], [rank, C_o]
-    W0, W1 = get_factors(U, S, V_T)  # shape (C_i * H_k * W_k, rank), (rank, C_o)
-    W1 = W1.T.reshape(C_o, rank, 1, 1)
-    W0 = W0.T.reshape(rank, C_i, H_k, W_k)
-    low_rank_conv2d = LowRankConv2d(
-        module.in_channels,
-        module.out_channels,
-        (H_k, W_k),
-        rank,
-        stride=module.stride,
-        padding=module.padding,
-        dilation=module.dilation,
-        groups=module.groups,
-        bias=module.bias is not None,
-    ).to(module.weight.device)
+
+    # Crop SVD to the selected rank (batched)
+    U, S, V_T = crop_svd(U, S, V_T, rank)
+
+    # Compute factors per group: W0: (G, D, r), W1: (G, r, C_out_per_group)
+    W0, W1 = torch.vmap(get_factors, in_dims=(0, 0, 0))(U, S, V_T)
+
+    # Map back to conv weights expected by LowRankConv2d
+    # w1: (C_out, r, 1, 1)
+    W1 = W1.transpose(-1, -2).reshape(C_o, rank, 1, 1)
+    # w0: (r * groups, C_in/groups, H_k, W_k)
+    W0 = W0.transpose(-1, -2).reshape(rank * groups, C_i_by_grp, H_k, W_k)
+
+    # Build the low-rank conv and copy weights/bias
+    low_rank_conv2d = (
+        LowRankConv2d(
+            module.in_channels,
+            module.out_channels,
+            (H_k, W_k),
+            rank,
+            stride=module.stride,
+            padding=module.padding,
+            dilation=module.dilation,
+            groups=module.groups,
+            bias=module.bias is not None,
+        )
+        .to(module.weight.device)
+        .to(module.weight.dtype)
+    )
     low_rank_conv2d.w0.data.copy_(W0)
     low_rank_conv2d.w1.data.copy_(W1)
     if module.bias is not None:
         low_rank_conv2d.bias.data.copy_(module.bias)
+
     return low_rank_conv2d
 
 
