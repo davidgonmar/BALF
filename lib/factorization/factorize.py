@@ -340,6 +340,7 @@ def factorize_conv2d_whitened(
     data_whitening_matrix_inverse,
     factors=None,
 ):
+
     W = module.weight
     C_o, C_i_by_grp, H_k, W_k = W.shape
     groups = module.groups
@@ -363,7 +364,7 @@ def factorize_conv2d_whitened(
     )  # [C_i * H_k * W_k, rank], [rank], [rank, C_o]
     W0, W1 = torch.vmap(get_factors, in_dims=(0, 0, 0))(
         U, S, V_T
-    )  # [C_i * H_k * W_k, rank], [rank, C_o]
+    )  # [G, C_i * H_k * W_k, rank], [G, rank, C_o]
     # print(data_whitening_matrix.shape, W0.shape, W1.shape)
     W0 = data_whitening_matrix @ W0
     W1 = W1.transpose(-1, -2).reshape(C_o, rank, 1, 1)
@@ -383,6 +384,7 @@ def factorize_conv2d_whitened(
         .to(module.weight.device)
         .to(module.weight.dtype)
     )
+    # print(W0.shape, W1.shape, low_rank_conv2d.w0.shape, low_rank_conv2d.w1.shape)
     low_rank_conv2d.w0.data.copy_(W0)
     low_rank_conv2d.w1.data.copy_(W1)
     if module.bias is not None:
@@ -494,7 +496,7 @@ def to_low_rank_activation_aware_auto(
     metric: str = "flops",
     inplace: bool = True,
     *,
-    save_dir: Union[str, Path, None] = "./tmp_whitening",
+    save_dir: Union[str, Path],
     keep_whiteners_in_mem: bool = False,
     load_existing: bool = True,
     keep_factors_in_mem: bool = False,
@@ -516,9 +518,13 @@ def to_low_rank_activation_aware_auto(
 
     # ---------- helpers ----------
     def _fname_whit(name: str) -> Path:
+        if save_dir is None:
+            return Path("")
         return save_dir / (name.replace(".", "__") + ".pt")
 
     def _fname_fac(name: str) -> Path:
+        if save_dir is None:
+            return Path("")
         return save_dir / (name.replace(".", "__") + "__fac.pt")
 
     def _save_whit(name: str, whit):
@@ -534,7 +540,7 @@ def to_low_rank_activation_aware_auto(
     def _load_whit(name: str):
         if name in whit_cache:
             return whit_cache[name]
-        whit = torch.load(_fname_whit(name), map_location="cpu")
+        whit = torch.load(_fname_whit(name), map_location="cpu", weights_only=True)
         if keep_whiteners_in_mem:
             whit_cache[name] = whit
         return (whit[0].cuda(), whit[1].cuda()) if torch.cuda.is_available() else whit
@@ -542,7 +548,7 @@ def to_low_rank_activation_aware_auto(
     def _load_fac(name: str):
         if name in fac_cache:
             return fac_cache[name]
-        fac = torch.load(_fname_fac(name), map_location="cpu")
+        fac = torch.load(_fname_fac(name), map_location="cpu", weights_only=True)
         if keep_factors_in_mem:
             fac_cache[name] = fac
         return fac
@@ -675,9 +681,13 @@ def to_low_rank_activation_aware_auto(
 def get_rank_to_keep_from_rank_ratio(
     X: torch.tensor, S: torch.Tensor, rank_ratio: float
 ):
+
+    # TODO -- unify
+    if S.ndim == 1:
+        S = S.unsqueeze(0)
     # truncates towards 0
     assert 0.0 <= rank_ratio <= 1.0, "rank_ratio must be in [0, 1]"
-    k = math.ceil(S.shape[0] * rank_ratio)
+    k = math.ceil(S.shape[1] * rank_ratio)
     return max(k, 1)
 
 
@@ -685,7 +695,7 @@ def get_rank_to_keep_from_energy_ratio(
     X: torch.Tensor, S: torch.Tensor, energy_ratio: float
 ) -> int:
     assert 0.0 <= energy_ratio <= 1.0
-    sq = S.pow(2)
+    sq = S.pow(2).sum(0)
     cum_energy = sq.cumsum(dim=0)
     total_energy = cum_energy[-1]
     threshold = energy_ratio * total_energy
@@ -698,6 +708,7 @@ def get_rank_to_keep_from_param_number_ratio(
     S: torch.Tensor,
     param_number_ratio: float,
 ):
+    raise NotImplementedError("This function is not tested yet.")
     assert X.ndim == 2, "X must be 2-dimensional"
     assert S.ndim == 1, "Singular values must be 1-dimensional"
     m, n = X.shape
@@ -719,68 +730,6 @@ rank_to_keep_name_to_fn = {
 }
 
 
-def to_low_rank_activation_aware_manual(
-    model: nn.Module,
-    data_or_cache,
-    cfg_dict: Dict,
-    inplace=True,
-):
-
-    if not inplace:
-        model = copy.deepcopy(model)
-
-    modules_to_replace = gather_submodules(
-        model,
-        should_do=keys_passlist_should_do(cfg_dict.keys()),
-    )
-
-    if isinstance(data_or_cache, dict) and {"acts", "outs", "len_dataset"} <= set(
-        data_or_cache.keys()
-    ):
-        cache = data_or_cache
-    else:
-        cache = collect_activation_cache(model, data_or_cache, cfg_dict.keys())
-
-    acts_auto, _, len_dataset = cache["acts"], cache["outs"], cache["len_dataset"]
-
-    # get the cholesky decomposition of the covariance matrix of each activation im2col'ed in case of conv2d
-    whit = {
-        name: obtain_whitening_matrix(acts_auto[name] / len_dataset, module)
-        for name, module in modules_to_replace
-    }
-
-    def factory_fn(name, module):
-        parent_module = model
-        *parent_path, attr_name = name.split(".")
-        for part in parent_path:
-            parent_module = getattr(parent_module, part)
-
-        if is_linear(module):
-            return factorize_linear_whitened(
-                module,
-                lambda W, U, S, V_T: rank_to_keep_name_to_fn[cfg_dict[name]["name"]](
-                    W, S, cfg_dict[name]["value"]
-                ),
-                whit[name][0],
-                whit[name][1],
-            )
-        elif is_conv2d(module):
-            return factorize_conv2d_whitened(
-                module,
-                lambda W, U, S, V_T: rank_to_keep_name_to_fn[cfg_dict[name]["name"]](
-                    W, S, cfg_dict[name]["value"]
-                ),
-                whit[name][0],
-                whit[name][1],
-            )
-        else:
-            return module
-
-    modules_to_replace = {name: module for name, module in modules_to_replace}
-    replace_with_factory(model, modules_to_replace, factory_fn)
-    return model
-
-
 @torch.no_grad()
 def to_low_rank_activation_aware_manual(
     model: nn.Module,
@@ -789,7 +738,7 @@ def to_low_rank_activation_aware_manual(
     *,
     inplace: bool = True,
     # cache settings -----------------------------------------------------------
-    save_dir: Union[str, Path, None] = "./tmp_whitening",
+    save_dir: Union[str, Path],
     keep_whiteners_in_mem: bool = False,
     load_existing: bool = True,
     keep_factors_in_mem: bool = False,
@@ -828,7 +777,7 @@ def to_low_rank_activation_aware_manual(
     def _load_whit(name: str):
         if name in whit_cache:
             return whit_cache[name]
-        whit = torch.load(_fname_whit(name), map_location="cpu")
+        whit = torch.load(_fname_whit(name), map_location="cpu", weights_only=True)
         if keep_whiteners_in_mem:
             whit_cache[name] = whit
         return (whit[0].cuda(), whit[1].cuda()) if torch.cuda.is_available() else whit
@@ -836,7 +785,7 @@ def to_low_rank_activation_aware_manual(
     def _load_fac(name: str):
         if name in fac_cache:
             return fac_cache[name]
-        fac = torch.load(_fname_fac(name), map_location="cpu")
+        fac = torch.load(_fname_fac(name), map_location="cpu", weights_only=True)
         if keep_factors_in_mem:
             fac_cache[name] = fac
         return fac
@@ -871,7 +820,7 @@ def to_low_rank_activation_aware_manual(
             _save_whit(name, whit)
             if keep_whiteners_in_mem:
                 whit_cache[name] = whit
-        P, W = whit  # noqa: F841 (kept for clarity)
+        P, W = whit
 
         # -- SVD factors ------------------------------------------------
         if save_dir is not None and load_existing and _fname_fac(name).exists():
@@ -909,9 +858,11 @@ def to_low_rank_activation_aware_manual(
 
         # Rank selector according to cfg_dict -------------------------
         rule = cfg_dict[name]
-        selector = lambda *_: rank_to_keep_name_to_fn[rule["name"]](
-            module.weight, S, rule["value"]
-        )
+
+        def selector(*args):
+            ret = rank_to_keep_name_to_fn[rule["name"]](module.weight, S, rule["value"])
+            print(ret, rule["name"], rule["value"])
+            return ret
 
         # Actual replacement -----------------------------------------
         if is_linear(module):
@@ -1006,19 +957,20 @@ def to_low_rank_manual(
     )
 
     def factory_fn(name, module):
+        rule = cfg_dict[name]
+        selector = lambda W, U, S, V_T: rank_to_keep_name_to_fn[rule["name"]](
+            module.weight, S, rule["value"]
+        )
+
         if isinstance(module, nn.Linear):
             return factorize_linear(
                 module,
-                lambda W, U, S, V_T: get_rank_to_keep_from_rank_ratio(
-                    W, S, cfg_dict[name]["value"]
-                ),
+                selector,
             )
         elif isinstance(module, nn.Conv2d):
             return factorize_conv2d(
                 module,
-                lambda W, U, S, V_T: get_rank_to_keep_from_rank_ratio(
-                    W, S, cfg_dict[name]["value"]
-                ),
+                selector,
             )
         else:
             return module

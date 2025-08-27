@@ -140,6 +140,7 @@ for k in (
             inplace=False,
             keys=layer_keys,
             metric="flops" if args.mode == "flops_auto" else "params",
+            save_dir="./svd-cache/" + args.model_name,
         )
     elif args.mode == "energy_act_aware":
         model_lr = to_low_rank_activation_aware_manual(
@@ -150,6 +151,7 @@ for k in (
                 for kk in layer_keys
             },
             inplace=False,
+            save_dir="./whitening-cache/" + args.model_name,
         )
     elif args.mode == "energy":
         model_lr = to_low_rank_manual(
@@ -178,13 +180,7 @@ for k in (
 
     model_path = ratio_dir / "model.pth"
     torch.save(
-        {
-            "state_dict": model_lr.to("cpu").state_dict(),
-            "compression_ratio": k,
-            "mode": args.mode,
-            "model_name": args.model_name,
-            "seed": args.seed,
-        },
+        model_lr,
         model_path,
     )
 
