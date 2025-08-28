@@ -17,7 +17,7 @@ from pathlib import Path
 
 
 def maximize_energy(
-    cum_energy_vectors, cumulative_cost_vectors, total_cost, minimize=False, n_iters=50
+    cum_energy_vectors, cumulative_cost_vectors, total_cost, n_iters=50
 ):
     """
     Solve the multiple-choice knapsack problem via Lagrangian relaxation.
@@ -25,9 +25,6 @@ def maximize_energy(
     under the cost budget.
     """
 
-    # print("start")
-    # start_time = time.time()
-    # Convert inputs to numpy arrays of floats
     def to_array(vec):
         if isinstance(vec, torch.Tensor):
             arr = vec.detach().cpu().numpy()
@@ -37,8 +34,6 @@ def maximize_energy(
 
     energies = [to_array(vec) for vec in cum_energy_vectors]
     costs = [to_array(vec) for vec in cumulative_cost_vectors]
-    # num_groups = len(energies)
-
     low, high = 0.0, 0.0
     for e_vec, c_vec in zip(energies, costs):
         ratios = np.where(c_vec > 0, e_vec / c_vec, 0.0)
@@ -53,7 +48,7 @@ def maximize_energy(
         total_c = 0.0
         total_e = 0.0
         for e_i, c_i in zip(energies, costs):
-            vals = ((-e_i) if minimize else e_i) - lmbda * c_i
+            vals = e_i - lmbda * c_i
             j = int(np.argmax(vals))
             sel_idx.append(j)
             total_c += float(c_i[j])
@@ -73,7 +68,6 @@ def maximize_energy(
             high = mid
 
     sel_final, _, _ = compute_selection(high)
-    # print(f"Time taken: {time.time() - start_time} seconds")
     return [j + 1 for j in sel_final]
 
 
@@ -103,7 +97,7 @@ def generate_cost_flops_conv2d(filter_shape: tuple, out_shape: tuple, module):
     C_out, C_in, H_k, W_k = filter_shape
     B, H_out, W_out = out_shape[0], out_shape[2], out_shape[3]
     return B * torch.minimum(
-        R * H_out * W_out * (C_in * H_k * W_k + C_out),
+        R * H_out * W_out * (module.groups * C_in * H_k * W_k + C_out),
         torch.tensor(C_out * H_out * W_out * H_k * W_k * C_in),
     )
 

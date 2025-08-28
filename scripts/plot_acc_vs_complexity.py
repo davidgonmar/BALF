@@ -19,7 +19,7 @@ plt.rcParams.update(
         "xtick.labelsize": 7,
         "ytick.labelsize": 7,
         "lines.linewidth": 1.0,
-        "lines.markersize": 3,  # smaller markers
+        "lines.markersize": 2,  # smaller markers
         "figure.dpi": DPI,
     }
 )
