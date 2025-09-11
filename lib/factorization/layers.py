@@ -8,13 +8,13 @@ class LowRankLinear(nn.Module):
     ):
         super(LowRankLinear, self).__init__()
         self.w0 = nn.Parameter(torch.randn(in_features, rank))
-        self.w1 = nn.Parameter(torch.randn(rank, out_features))
+        self.w1 = nn.Parameter(torch.randn(out_features, rank))
         self.bias = nn.Parameter(torch.randn(out_features)) if bias else None
 
     def forward(self, x: torch.Tensor):
         # X in R^{BATCH x IN}, W0 in R^{IN x RANK}, W1 in R^{RANK x OUT}
         w0, w1 = self.w0, self.w1
-        return torch.nn.functional.linear(x @ w0, w1.t(), bias=self.bias)
+        return torch.nn.functional.linear(x @ w0, w1, bias=self.bias)
 
     def __repr__(self):
         return f"LowRankLinear(in_features={self.w0.shape[0]}, out_features={self.w1.shape[1]}, rank={self.w0.shape[1]}, bias={self.bias is not None})"

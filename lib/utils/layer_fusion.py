@@ -88,7 +88,7 @@ def fuse_batch_norm_inference(
         raise TypeError(f"Expected nn.Conv2d, got {type(conv)}")
     if not isinstance(bn, nn.BatchNorm2d):
         raise TypeError(f"Expected nn.BatchNorm2d, got {type(bn)}")
-
+    # print(f"Fusing {conv_name} and {bn_name}")
     if isinstance(conv, LowRankConv2d):
         w_conv_fuse = conv.w1
         dummy_conv = nn.Conv2d(

@@ -31,4 +31,34 @@ python "${PLOT_SCRIPT}" \
   --energy_act_aware_json "${ROOT_DIR}/results/imagenet/mobilenet_v2/factorized_posttrain/energy_act_aware/results.json" \
   --output_dir "${OUTPUT_DIR}"
 
+# resnext50_32x4d
+echo "=== Plotting ResNeXt50_32x4d (single figure) ==="
+python "${PLOT_SCRIPT}" \
+  --model_name resnext50_32x4d \
+  --flops_json "${ROOT_DIR}/results/imagenet/resnext50_32x4d/factorized_posttrain/flops_auto/results.json" \
+  --params_json "${ROOT_DIR}/results/imagenet/resnext50_32x4d/factorized_posttrain/params_auto/results.json" \
+  --energy_json "${ROOT_DIR}/results/imagenet/resnext50_32x4d/factorized_posttrain/energy/results.json" \
+  --energy_act_aware_json "${ROOT_DIR}/results/imagenet/resnext50_32x4d/factorized_posttrain/energy_act_aware/results.json" \
+  --output_dir "${OUTPUT_DIR}"
+
+# resnext101_32x8d
+echo "=== Plotting ResNeXt101_32x8d (single figure) ==="
+python "${PLOT_SCRIPT}" \
+  --model_name resnext101_32x8d \
+  --flops_json "${ROOT_DIR}/results/imagenet/resnext101_32x8d/factorized_posttrain/flops_auto/results.json" \
+  --params_json "${ROOT_DIR}/results/imagenet/resnext101_32x8d/factorized_posttrain/params_auto/results.json" \
+  --energy_json "${ROOT_DIR}/results/imagenet/resnext101_32x8d/factorized_posttrain/energy/results.json" \
+  --energy_act_aware_json "${ROOT_DIR}/results/imagenet/resnext101_32x8d/factorized_posttrain/energy_act_aware/results.json" \
+  --output_dir "${OUTPUT_DIR}"
+
+# VIT
+echo "=== Plotting ViT-B_16 (single figure) ==="
+python "${PLOT_SCRIPT}" \
+  --model_name vit_b_16 \
+  --flops_json "${ROOT_DIR}/results/imagenet/vit_b_16/factorized_posttrain/flops_auto/results.json" \
+  --params_json "${ROOT_DIR}/results/imagenet/vit_b_16/factorized_posttrain/params_auto/results.json" \
+  --energy_json "${ROOT_DIR}/results/imagenet/vit_b_16/factorized_posttrain/energy/results.json" \
+  --energy_act_aware_json "${ROOT_DIR}/results/imagenet/vit_b_16/factorized_posttrain/energy_act_aware/results.json" \
+  --output_dir "${OUTPUT_DIR}"
+  
 echo "Plots saved in ${OUTPUT_DIR}."

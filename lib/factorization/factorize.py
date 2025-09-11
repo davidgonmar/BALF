@@ -76,6 +76,10 @@ def generate_cost_flops_linear(
 ) -> torch.Tensor:
     # A decomposed linear layer has shapes W_0 in [O, R] and W_1 in [R, I], input in [B, I] and output in [B, O]
     # flops(R) = min(B * R * (I + O), B * I * O)
+    # print(weight_shape, out_shape, module)
+    # out shape might be [B, L, D], fuse into [B*L, D]
+    if len(out_shape) == 3:
+        out_shape = (out_shape[0] * out_shape[1], out_shape[2])
     R = torch.arange(1, min(weight_shape[0], weight_shape[1]) + 1, 1)
     O, I = weight_shape
     B = out_shape[0]
@@ -89,6 +93,7 @@ def generate_cost_flops_conv2d(filter_shape: tuple, out_shape: tuple, module):
     # flops_1(R) = B * R * H_out * W_out * C_in * H_k * W_k + B * C_out * R * H_out * W_out = B * R * H_out * W_out * (C_in * H_k * W_k + C_out)
     # flops_2(R) = B * C_out * H_out * W_out * C_in * H_k * W_k
     # flops(R) = min(flops_1(R), flops_2(R))
+
     R = torch.arange(
         1,
         min(filter_shape[0], filter_shape[1] * filter_shape[2] * filter_shape[3]) + 1,
@@ -189,9 +194,14 @@ def obtain_whitening_matrix(
     # cusolver seems to have a memory access error?
     # print(acts.shape)
     torch.backends.cuda.preferred_linalg_library("magma")
-    eigenvalues, eigenvectors = torch.linalg.eigh(
-        acts.cuda().float()
-    )  # acts might be in lower precision
+    try:
+        eigenvalues, eigenvectors = torch.linalg.eigh(
+            acts.cuda().float()
+        )  # acts might be in lower precision
+    except RuntimeError:
+        eigenvalues, eigenvectors = torch.linalg.eig(acts.cuda())
+        eigenvalues = eigenvalues.real
+        eigenvectors = eigenvectors.real
     # print(eigenvalues.shape, eigenvectors.shape)
     eigenvalues, eigenvectors = eigenvalues.to(acts.dtype), eigenvectors.to(acts.dtype)
     x_svals = torch.sqrt(eigenvalues)
@@ -221,6 +231,8 @@ def factorize_linear_whitened(
     else:
         U, S, V_T = factors
     rank = get_rank(W, U, S, V_T)
+    # closest to mult of 8
+    # rank = int(math.ceil(rank / 8) * 8)
     U = U[0]
     S = S[0]
     V_T = V_T[0]
@@ -245,7 +257,7 @@ def factorize_linear_whitened(
         .to(module.weight.dtype)
     )
     low_rank_linear.w0.data.copy_(W0)
-    low_rank_linear.w1.data.copy_(W1)
+    low_rank_linear.w1.data.copy_(W1.T)
     if module.bias is not None:
         low_rank_linear.bias.data.copy_(module.bias)
     return low_rank_linear
@@ -275,6 +287,8 @@ def factorize_conv2d_whitened(
 
     # print(f"U shape: {U.shape}, S shape: {S.shape}, V_T shape: {V_T.shape}")
     rank = get_rank(W, U, S, V_T)
+    # closest to mult of 8
+    # rank = int(math.ceil(rank / 8) * 8)
     if not should_do_low_rank(reshaped, rank):
         return module
     U, S, V_T = crop_svd(
@@ -354,7 +368,9 @@ def _move(obj, device):
         return type(obj)(_move(v, device) for v in obj)
 
 
+@torch.no_grad()
 def collect_activation_cache(model: nn.Module, data, keys):
+    # print(keys)
     length = data.size(0) if isinstance(data, torch.Tensor) else len(data)
     loader = [data] if isinstance(data, torch.Tensor) else data
     mods = gather_submodules(model, should_do=keys_passlist_should_do(keys))
@@ -369,10 +385,12 @@ def collect_activation_cache(model: nn.Module, data, keys):
             acts[n] = torch.zeros(
                 a.shape[0], a.shape[2], a.shape[2], device=device, dtype=a.dtype
             )
+        # print(acts[n].shape, "total MBs:", acts[n].numel() * acts[n].element_size() / 1e6)
         acts[n] = acts[n].to(device, non_blocking=True)
         acts[n] += a.transpose(-1, -2) @ a / length
-        acts[n] = acts[n].to("cpu")
-        outs.setdefault(n, out.detach().cpu())
+        acts[n] = acts[n].to("cpu").detach()
+        # print(out.shape, "total MBs:", out.numel() * out.element_size() / 1e6)
+        outs.setdefault(n, out.shape)
 
     for n, m in mods:
         hooks.append(m.register_forward_hook(functools.partial(fn, n)))
@@ -384,6 +402,7 @@ def collect_activation_cache(model: nn.Module, data, keys):
         for batch in loader:
             print("batch {}/{}".format(it + 1, nbatches), end="\r")
             it += 1
+            # print("starting")
             if torch.is_tensor(batch):
                 model(batch.to(device))
             elif isinstance(batch, (list, tuple)):
@@ -398,10 +417,12 @@ def collect_activation_cache(model: nn.Module, data, keys):
                 )
             else:
                 raise TypeError(type(batch))
+            # print("done")
     model.train(state)
     for h in hooks:
         h.remove()
 
+    # print("retrieved acts", acts.keys())
     return {"acts": acts, "outs": outs, "len_dataset": length}
 
 
@@ -518,7 +539,7 @@ def to_low_rank_activation_aware_auto(
         cum_energies.append(energy)
 
         ws.append(module.weight.detach())
-        out_shapes.append(outs[name].shape)
+        out_shapes.append(outs[name])
 
         if not keep_whiteners_in_mem:
             whit_cache.pop(name, None)
@@ -553,7 +574,11 @@ def to_low_rank_activation_aware_auto(
         costs = [make_cost(w, o) for w, o in zip(ws, out_shapes)]
         total_budget = sum(c[-1].item() for c in costs) * ratio_to_keep
 
-    costs = [c[: len(e)] for c, e in zip(costs, cum_energies)]
+    # print(list(zip([len(cost) for cost in costs], [len(e) for e in cum_energies])))
+    # costs = [c[: len(e)] for c, e in zip(costs, cum_energies)]
+    assert all(
+        len(c) == len(e) for c, e in zip(costs, cum_energies)
+    ), "Cost and energy vectors must have the same length."
 
     print("[LRA-AUTO] Selecting ranks (knapsack)…")
     import time
@@ -565,6 +590,11 @@ def to_low_rank_activation_aware_auto(
     print(f"[LRA-AUTO] Rank selection done. ({time.time() - t0:.2f}s)")
 
     selected_per_mod = {n: s for (n, _), s in zip(modules_to_replace, selected_indices)}
+
+    """print("modules - selected pairs:")
+    for (n, _), s in zip(modules_to_replace, selected_indices):
+        print(f"  {n}: {s}")
+    """
 
     # ---------- replace modules ----------
     def factory_fn(name: str, module: nn.Module):
@@ -822,7 +852,7 @@ def factorize_linear(module, get_rank: Callable, factors=None):
         bias=module.bias is not None,
     ).to(module.weight.device)
     low_rank_linear.w0.data.copy_(W0)
-    low_rank_linear.w1.data.copy_(W1)
+    low_rank_linear.w1.data.copy_(W1.T)
     if module.bias is not None:
         low_rank_linear.bias.data.copy_(module.bias)
     return low_rank_linear

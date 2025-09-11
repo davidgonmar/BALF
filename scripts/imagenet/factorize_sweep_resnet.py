@@ -27,7 +27,15 @@ parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFo
 parser.add_argument(
     "--model_name",
     required=True,
-    choices=["resnet18", "resnet34", "resnet50", "mobilenet_v2"],
+    choices=[
+        "resnet18",
+        "resnet34",
+        "resnet50",
+        "mobilenet_v2",
+        "resnext50_32x4d",
+        "resnext101_32x8d",
+        "vit_b_16",
+    ],
 )
 parser.add_argument("--results_dir", required=True)
 parser.add_argument(
@@ -43,17 +51,30 @@ parser.add_argument("--batch_size_cache", type=int, default=128)
 parser.add_argument("--subset_size", type=int, default=4096)
 parser.add_argument("--cache_file", type=str, default="activation_cache.pt")
 parser.add_argument("--force_recache", action="store_true")
+parser.add_argument("--save_compressed_models", action="store_true")
 args = parser.parse_args()
 # args.force_recache = True
 seed_everything(args.seed)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# use timm for vit
+
+import timm
+import functools
 
 model_dict = {
     "resnet18": models.resnet18,
     "resnet34": models.resnet34,
     "resnet50": models.resnet50,
     "mobilenet_v2": models.mobilenet_v2,
+    "resnext50_32x4d": models.resnext50_32x4d,
+    "resnext101_32x8d": models.resnext101_32x8d,
+    "vit_b_16": functools.partial(
+        timm.create_model,
+        model_name="vit_base_patch16_224",
+        num_classes=1000,
+        pretrained=True,
+    ),
 }
 model = model_dict[args.model_name](pretrained=True).to(device)
 
@@ -95,7 +116,7 @@ eval_dl = DataLoader(
     num_workers=8,
     pin_memory=True,
 )
-
+fuse_conv_bn = lambda *args, **kwargs: args[0]
 
 train_ds_full = datasets.ImageFolder(args.train_dir, transform=train_tf)
 
@@ -127,8 +148,7 @@ print(
     f"params={params_orig} flops_total={flops_orig['total']}"
 )
 
-"""
-    """
+
 ratios_comp = [
     0.1,
     0.15,
@@ -152,6 +172,11 @@ ratios_comp = [
     1.00,
 ]
 
+"""
+ratios_comp = [
+    0.6
+]
+"""
 ratios_energy = [
     0.01,
     0.05,
@@ -175,10 +200,10 @@ ratios_energy = [
     0.999999,
 ]
 
-fuse_conv_bn = lambda *args, **kwargs: args[0]
+
 layer_keys = [k for k in get_all_convs_and_linears(model)]
 # remove linear
-layer_keys = [k for k in layer_keys if "linear" not in k and "fc" not in k]
+# layer_keys = [k for k in layer_keys if "linear" not in k and "fc" not in k]
 # print(layer_keys)
 base_dir = Path(args.results_dir)
 base_dir.mkdir(parents=True, exist_ok=True)
@@ -273,6 +298,12 @@ for k in (
             "mode": args.mode,
         }
     )
+
+    # save model in /models
+    if args.save_compressed_models:
+        model_path = ratio_dir / f"model_{args.model_name}_ratio_{k:.6f}.pth"
+        torch.save(model_eval, model_path)
+
 
 output_file = base_dir / "results.json"
 with open(output_file, "w") as f:
