@@ -59,3 +59,17 @@ For ResNet50
 0,7523667260271197; 21,30827886955484
 
 Does not require data.
+
+
+
+# VIT RESULTS FROM https://openaccess.thecvf.com/content/WACV2024/papers/Xu_GTP-ViT_Efficient_Vision_Transformers_via_Graph-Based_Token_Propagation_WACV_2024_paper.pdf
+
+| Method     | #Param | 15.3 GMACs | 13.1 GMACs | 11.6 GMACs | 9.8 GMACs | 8.8 GMACs |
+|------------|--------|------------|------------|------------|-----------|-----------|
+| DyViT [32] | 89.5M  | 79.9       | 77.7       | 75.5       | 69.5      | 50.2      |
+| EViT [24]  | 86.6M  | 81.7       | 81.3       | 80.5       | 78.7      | 75.1      |
+| Evo-ViT [40] | 86.6M | 81.5       | 80.9       | 79.1       | 78.5      | 60.6      |
+| Tri-Level [21] | 86.6M | 64.6     | 64.6       | 64.6       | 64.6      | 64.6      |
+| ToMe [1]   | 86.6M  | 81.6       | 81.2       | 80.6       | 79.5      | 77.8      |
+| ATS [17]   | 86.6M  | 81.8       | 81.7       | 81.4       | 80.5      | 79.6      |
+| **GTP (ours)** | **86.6M** | **81.8** | **81.5** | **80.9** | **80.0** | **78.3** |

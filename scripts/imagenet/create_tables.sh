@@ -16,3 +16,12 @@ python "${TABLE_SCRIPT}" \
   --ratios 0.4,0.5,0.7,0.8 \
   --decimals 2 \
   > "${OUTPUT_DIR}/resnet50_table.tex"
+
+# for DeiT-B/16
+
+echo "=== Creating DeiT-B_16 table (row-grouped) ==="
+python "${TABLE_SCRIPT}" \
+  "${ROOT_DIR}/results/imagenet/deit_b_16/factorized_posttrain" \
+  --ratios 0.5,0.6,0.7,0.8 \
+  --decimals 2 \
+  > "${OUTPUT_DIR}/deit_b_16_table.tex"

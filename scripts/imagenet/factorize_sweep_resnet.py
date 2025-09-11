@@ -35,6 +35,7 @@ parser.add_argument(
         "resnext50_32x4d",
         "resnext101_32x8d",
         "vit_b_16",
+        "deit_b_16",
     ],
 )
 parser.add_argument("--results_dir", required=True)
@@ -75,7 +76,14 @@ model_dict = {
         num_classes=1000,
         pretrained=True,
     ),
+    "deit_b_16": functools.partial(
+        timm.create_model,
+        model_name="deit_base_patch16_224",
+        num_classes=1000,
+        pretrained=True,
+    ),
 }
+
 model = model_dict[args.model_name](pretrained=True).to(device)
 
 
@@ -305,6 +313,16 @@ for k in (
         torch.save(model_eval, model_path)
 
 
+results.append(
+    {
+        "metric_value": "original",
+        "loss": float(baseline_metrics["loss"]),
+        "accuracy": float(baseline_metrics["accuracy"]),
+        "params_ratio": 1.0,
+        "flops_ratio": 1.0,
+        "mode": args.mode,
+    }
+)
 output_file = base_dir / "results.json"
 with open(output_file, "w") as f:
     json.dump(results, f, indent=2)

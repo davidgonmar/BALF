@@ -108,7 +108,7 @@ def main():
             fa_base_a,
             args.decimals,
         )
-        lines.append(f"flops-auto-{r:g} & {fa_f} & {fa_p} & {fa_a} \\\\")
+        lines.append(f"FA-{r:g} & {fa_f} & {fa_p} & {fa_a} \\\\")
 
         # params-auto
         pa_row = nearest_row(params_auto, "params_ratio", r)
@@ -127,7 +127,7 @@ def main():
             pa_base_a,
             args.decimals,
         )
-        lines.append(f"params-auto-{r:g} & {pa_f} & {pa_p} & {pa_a} \\\\")
+        lines.append(f"PA-{r:g} & {pa_f} & {pa_p} & {pa_a} \\\\")
 
         if idx != len(ratios) - 1:
             lines.append(r"\addlinespace")

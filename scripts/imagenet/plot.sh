@@ -62,3 +62,15 @@ python "${PLOT_SCRIPT}" \
   --output_dir "${OUTPUT_DIR}"
   
 echo "Plots saved in ${OUTPUT_DIR}."
+
+
+# DeiT
+echo "=== Plotting DeiT-B_16 (single figure) ==="
+python "${PLOT_SCRIPT}" \
+  --model_name deit_b_16 \
+  --flops_json "${ROOT_DIR}/results/imagenet/deit_b_16/factorized_posttrain/flops_auto/results.json" \
+  --params_json "${ROOT_DIR}/results/imagenet/deit_b_16/factorized_posttrain/params_auto/results.json" \
+  --energy_json "${ROOT_DIR}/results/imagenet/deit_b_16/factorized_posttrain/energy/results.json" \
+  --energy_act_aware_json "${ROOT_DIR}/results/imagenet/deit_b_16/factorized_posttrain/energy_act_aware/results.json" \
+  --output_dir "${OUTPUT_DIR}"
+  
