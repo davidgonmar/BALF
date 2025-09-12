@@ -16,12 +16,10 @@ from lib.factorization.factorize import (
     to_low_rank_manual,
     collect_activation_cache,
 )
-from lib.utils.layer_fusion import (
-    fuse_batch_norm_inference,
-    fuse_conv_bn,
-    get_conv_bn_fuse_pairs,
-)
 import torchvision.models as models
+import timm
+import functools
+
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument(
@@ -54,22 +52,32 @@ parser.add_argument("--cache_file", type=str, default="activation_cache.pt")
 parser.add_argument("--force_recache", action="store_true")
 parser.add_argument("--save_compressed_models", action="store_true")
 args = parser.parse_args()
-# args.force_recache = True
+
+
 seed_everything(args.seed)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# use timm for vit
 
-import timm
-import functools
 
 model_dict = {
-    "resnet18": models.resnet18,
-    "resnet34": models.resnet34,
-    "resnet50": models.resnet50,
-    "mobilenet_v2": models.mobilenet_v2,
-    "resnext50_32x4d": models.resnext50_32x4d,
-    "resnext101_32x8d": models.resnext101_32x8d,
+    "resnet18": functools.partial(
+        models.resnet18, weights=models.ResNet18_Weights.IMAGENET1K_V1
+    ),
+    "resnet34": functools.partial(
+        models.resnet34, weights=models.ResNet34_Weights.IMAGENET1K_V1
+    ),
+    "resnet50": functools.partial(
+        models.resnet50, weights=models.ResNet50_Weights.IMAGENET1K_V1
+    ),
+    "mobilenet_v2": functools.partial(
+        models.mobilenet_v2, weights=models.MobileNet_V2_Weights.IMAGENET1K_V1
+    ),
+    "resnext50_32x4d": functools.partial(
+        models.resnext50_32x4d, weights=models.ResNeXt50_32X4D_Weights.IMAGENET1K_V1
+    ),
+    "resnext101_32x8d": functools.partial(
+        models.resnext101_32x8d, weights=models.ResNeXt101_32X8D_Weights.IMAGENET1K_V1
+    ),
     "vit_b_16": functools.partial(
         timm.create_model,
         model_name="vit_base_patch16_224",
@@ -115,7 +123,8 @@ eval_dl = DataLoader(
     num_workers=8,
     pin_memory=True,
 )
-# subset eval_dl to 1000 images
+
+
 eval_ds = Subset(eval_ds, torch.randperm(len(eval_ds))[:3000])
 eval_dl = DataLoader(
     eval_ds,
@@ -124,7 +133,6 @@ eval_dl = DataLoader(
     num_workers=8,
     pin_memory=True,
 )
-fuse_conv_bn = lambda *args, **kwargs: args[0]
 
 train_ds_full = datasets.ImageFolder(args.train_dir, transform=train_tf)
 
@@ -142,14 +150,9 @@ train_dl = DataLoader(
     pin_memory=True,
 )
 
-fuse_pairs = get_conv_bn_fuse_pairs(model)
-model_fused = fuse_conv_bn(
-    model, fuse_pairs, fuse_impl=fuse_batch_norm_inference, inplace=False
-)
-
-baseline_metrics = evaluate_vision_model(model_fused, eval_dl)
-params_orig = sum(p.numel() for p in model_fused.parameters())
-flops_orig = count_model_flops(model_fused, (1, 3, 224, 224), formatted=False)
+baseline_metrics = evaluate_vision_model(model, eval_dl)
+params_orig = sum(p.numel() for p in model.parameters())
+flops_orig = count_model_flops(model, (1, 3, 224, 224), formatted=False)
 
 print(
     f"[original] loss={baseline_metrics['loss']:.4f} acc={baseline_metrics['accuracy']:.4f} "
@@ -180,11 +183,6 @@ ratios_comp = [
     1.00,
 ]
 
-"""
-ratios_comp = [
-    0.6
-]
-"""
 ratios_energy = [
     0.01,
     0.05,
@@ -210,15 +208,13 @@ ratios_energy = [
 
 
 layer_keys = [k for k in get_all_convs_and_linears(model)]
-# remove linear
-# layer_keys = [k for k in layer_keys if "linear" not in k and "fc" not in k]
-# print(layer_keys)
+
 base_dir = Path(args.results_dir)
 base_dir.mkdir(parents=True, exist_ok=True)
 cache_path = base_dir / args.cache_file
 
 if cache_path.exists() and not args.force_recache:
-    activation_cache = torch.load(cache_path, map_location="cpu")
+    activation_cache = torch.load(cache_path, map_location="cpu", weights_only=True)
 else:
     activation_cache = collect_activation_cache(model, train_dl, keys=layer_keys)
     torch.save(activation_cache, cache_path)
@@ -261,9 +257,7 @@ for k in (
             inplace=False,
         )
     # print(model_lr)
-    model_eval = fuse_conv_bn(
-        model_lr, fuse_pairs, fuse_impl=fuse_batch_norm_inference, inplace=False
-    )
+    model_eval = model_lr
     # print(model_eval)
     # print(torch.cuda.memory_allocated() / 1e6, "MB allocated after model eval")
     params_lr = sum(p.numel() for p in model_eval.parameters())

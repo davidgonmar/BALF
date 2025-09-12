@@ -14,15 +14,10 @@ from lib.utils import (
     get_all_convs_and_linears,
 )
 from lib.factorization.factorize import (
-    to_low_rank_activation_aware_auto,  # factorize model
+    to_low_rank_activation_aware_auto,
     to_low_rank_activation_aware_manual,
     to_low_rank_manual,
-    collect_activation_cache,  # use cached activations
-)
-from lib.utils.layer_fusion import (
-    fuse_batch_norm_inference,
-    fuse_conv_bn,
-    get_conv_bn_fuse_pairs,
+    collect_activation_cache,
 )
 from lib.models import load_model
 
@@ -58,15 +53,9 @@ train_ds = datasets.CIFAR10(root="data", train=True, transform=transform, downlo
 subset = torch.utils.data.Subset(train_ds, torch.randint(0, len(train_ds), (1024,)))
 train_dl = DataLoader(subset, batch_size=256, shuffle=True, drop_last=True)
 
-fuse_pairs = get_conv_bn_fuse_pairs(model)
-
-model_fused = fuse_conv_bn(
-    model, fuse_pairs, fuse_impl=fuse_batch_norm_inference, inplace=False
-)
-
-baseline_metrics = evaluate_vision_model(model_fused, eval_dl)
-params_orig = sum(p.numel() for p in model_fused.parameters())
-flops_orig = count_model_flops(model_fused, (1, 3, 32, 32), formatted=False)
+baseline_metrics = evaluate_vision_model(model, eval_dl)
+params_orig = sum(p.numel() for p in model.parameters())
+flops_orig = count_model_flops(model, (1, 3, 32, 32), formatted=False)
 
 print(
     f"[original] loss={baseline_metrics['loss']:.4f} acc={baseline_metrics['accuracy']:.4f} "
@@ -119,7 +108,7 @@ ratios_energy = [
 ]
 layer_keys = [k for k in get_all_convs_and_linears(model)]
 
-# Build activation cache once, then reuse in the loop ---
+
 activation_cache = collect_activation_cache(model, train_dl, keys=layer_keys)
 
 base_dir = Path(args.results_dir)
@@ -162,9 +151,8 @@ for k in (
             },
             inplace=False,
         )
-    model_eval = fuse_conv_bn(
-        model_lr, fuse_pairs, fuse_impl=fuse_batch_norm_inference, inplace=False
-    )
+
+    model_eval = model_lr
 
     params_lr = sum(p.numel() for p in model_eval.parameters())
     flops_raw_lr = count_model_flops(model_eval, (1, 3, 32, 32), formatted=False)
@@ -212,6 +200,16 @@ for k in (
         }
     )
 
+results.append(
+    {
+        "metric_value": "original",
+        "loss": float(baseline_metrics["loss"]),
+        "accuracy": float(baseline_metrics["accuracy"]),
+        "params_ratio": 1.0,
+        "flops_ratio": 1.0,
+        "mode": args.mode,
+    }
+)
 output_file = base_dir / "results.json"
 with open(output_file, "w") as f:
     json.dump(results, f, indent=2)

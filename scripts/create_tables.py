@@ -130,7 +130,6 @@ def main():
         lines.append(f"PA-{r:g} & {pa_f} & {pa_p} & {pa_a} \\\\")
 
         if idx != len(ratios) - 1:
-            lines.append(r"\addlinespace")
             lines.append(r"\midrule")
 
     print("\n".join(lines))

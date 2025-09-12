@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Root of the project (two levels up)
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-TABLE_SCRIPT="${SCRIPT_DIR}/create_tables.py"
+TABLE_SCRIPT="${SCRIPT_DIR}/../create_tables.py"
 OUTPUT_DIR="${ROOT_DIR}/results/imagenet/tables"
 mkdir -p "${OUTPUT_DIR}"
 

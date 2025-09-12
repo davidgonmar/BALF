@@ -71,13 +71,18 @@ def maximize_energy(
     return [j + 1 for j in sel_final]
 
 
+# ==============================================================================================
+# Estimate cost of factorized layers
+# R denotes the kept rank
+# ==============================================================================================
+
+
 def generate_cost_flops_linear(
     weight_shape: tuple, out_shape: tuple, module
 ) -> torch.Tensor:
-    # A decomposed linear layer has shapes W_0 in [O, R] and W_1 in [R, I], input in [B, I] and output in [B, O]
-    # flops(R) = min(B * R * (I + O), B * I * O)
-    # print(weight_shape, out_shape, module)
-    # out shape might be [B, L, D], fuse into [B*L, D]
+    # A decomposed linear layer has shapes W_0 in [O, P] and W_1 in [P, I], input in [B, I] and output in [B, O]
+    # flops(R) = min(B * P * (I + O), B * I * O)
+    # The output shape might be [B, L, O] in ViTs, fuse into [B*L, O]
     if len(out_shape) == 3:
         out_shape = (out_shape[0] * out_shape[1], out_shape[2])
     R = torch.arange(1, min(weight_shape[0], weight_shape[1]) + 1, 1)
@@ -87,13 +92,12 @@ def generate_cost_flops_linear(
 
 
 def generate_cost_flops_conv2d(filter_shape: tuple, out_shape: tuple, module):
-    # this holds regardless of groups, by setting C_i -> C_i / groups
-    # A factorized convolution has shape
-    # W_0 in [R, C_in, H_k, W_k] and W_1 in [C_out, R, 1, 1]
+    # The original convolution has shape W in [C_out, C_in_grp, H_k, W_k], input in [B, C_in, H_in, W_in] and output in [B, C_out, H_out, W_out]
+    # Where C_in_grp = C_in / grp
+    # A factorized convolution has shape W_0 in [R, C_in_grp, H_k, W_k] and W_1 in [C_out, R, 1, 1]
     # flops_1(R) = B * R * H_out * W_out * C_in * H_k * W_k + B * C_out * R * H_out * W_out = B * R * H_out * W_out * (C_in * H_k * W_k + C_out)
     # flops_2(R) = B * C_out * H_out * W_out * C_in * H_k * W_k
     # flops(R) = min(flops_1(R), flops_2(R))
-
     R = torch.arange(
         1,
         min(filter_shape[0], filter_shape[1] * filter_shape[2] * filter_shape[3]) + 1,
@@ -127,7 +131,6 @@ def generate_cost_params_conv2d(filter_shape: tuple) -> torch.Tensor:
         min(filter_shape[0], filter_shape[1] * filter_shape[2] * filter_shape[3]) + 1,
         1,
     )
-
     C_out, C_in, H_k, W_k = filter_shape
     return torch.minimum(
         R * (C_in * H_k * W_k + C_out),
@@ -159,15 +162,12 @@ def get_reshape(module: nn.Module) -> callable:
 
 def decompose_params(w: torch.Tensor):
     U, S, V_T = torch.linalg.svd(w, full_matrices=True)  # complete SVD
-    # print("w shape:", w.shape, "U shape:", U.shape, "S shape:", S.shape, "V_T shape:", V_T.shape)
     return U, S, V_T
 
 
 def crop_svd(U, S, V_T, rank):
-    if U.dim() == 3:
-        return U[:, :, :rank], S[:, :rank], V_T[:, :rank, :]
-    elif U.dim() == 2:
-        return U[:, :rank], S[:rank], V_T[:rank, :]
+    # Expects batched U, S, V_T (each one from a group)
+    return U[:, :, :rank], S[:, :rank], V_T[:, :rank, :]
 
 
 def get_factors(U, S, V_T):
@@ -177,6 +177,7 @@ def get_factors(U, S, V_T):
 
 
 def should_do_low_rank(W, rank):
+    # W is possibly batched (each one from a group), check if low-rank is more efficient
     if W.dim() == 3:
         W = W[0]
     # it can be proved that rank is memory efficient <=> rank is compute efficient
@@ -190,19 +191,18 @@ def obtain_whitening_matrix(
     acts: torch.Tensor,
     module: nn.Module,
 ):
-    # acts of shape (G, B, D)
-    # cusolver seems to have a memory access error?
-    # print(acts.shape)
+    # acts of shape (G, D, D), where G is the group dimension
+    # Cusolver sometimes fails on well-conditioned matrices, set to magma instead
     torch.backends.cuda.preferred_linalg_library("magma")
     try:
         eigenvalues, eigenvectors = torch.linalg.eigh(
             acts.cuda().float()
         )  # acts might be in lower precision
+    # on big matrices, eigh might fail (only on very big models, and very sporadic)
     except RuntimeError:
         eigenvalues, eigenvectors = torch.linalg.eig(acts.cuda())
         eigenvalues = eigenvalues.real
         eigenvectors = eigenvectors.real
-    # print(eigenvalues.shape, eigenvectors.shape)
     eigenvalues, eigenvectors = eigenvalues.to(acts.dtype), eigenvectors.to(acts.dtype)
     x_svals = torch.sqrt(eigenvalues)
     V = eigenvectors
@@ -212,9 +212,7 @@ def obtain_whitening_matrix(
     V = torch.where(
         keep.reshape(keep.shape[0], 1, keep.shape[1]), V, torch.zeros_like(V)
     )
-    # print(x_svals.shape, x_svals_inv.shape, V.shape)
     vmap_diag = torch.vmap(torch.diag, in_dims=0)
-    # print(f"Whitening matrix for {module.__class__.__name__} has rank {len(x_svals)}")
     return V @ vmap_diag(x_svals_inv), vmap_diag(x_svals) @ V.transpose(-1, -2)
 
 
@@ -231,21 +229,16 @@ def factorize_linear_whitened(
     else:
         U, S, V_T = factors
     rank = get_rank(W, U, S, V_T)
-    # closest to mult of 8
-    # rank = int(math.ceil(rank / 8) * 8)
+    if not should_do_low_rank(W, rank):
+        return module
+    U, S, V_T = crop_svd(U, S, V_T, rank)
+    # linear always has one group
     U = U[0]
     S = S[0]
     V_T = V_T[0]
     data_whitening_matrix = data_whitening_matrix[0]
-    data_whitening_matrix_inverse = data_whitening_matrix_inverse[0]
-    # print(W.shape, U.shape, S.shape, V_T.shape, rank)
-    if not should_do_low_rank(W, rank):
-        return module
-    U, S, V_T = crop_svd(U, S, V_T, rank)
-    # print("cropped U shape:", U.shape, "S shape:", S.shape, "V_T shape:", V_T.shape)
     W0, W1 = get_factors(U, S, V_T)  # shape (in, rank), (out, rank)
     W0 = data_whitening_matrix @ W0
-
     low_rank_linear = (
         LowRankLinear(
             module.in_features,
@@ -525,11 +518,8 @@ def to_low_rank_activation_aware_auto(
             S = S.to(torch.float32)  # ensure numeric stability
         else:
             reshaped = get_reshape(module)(module.weight.detach())
-            # print(reshaped.shape, module.weight.shape, W.shape, P.shape)
             aa = W @ reshaped
             U, S, V_T = torch.linalg.svd(aa.float(), full_matrices=False)
-            # print(U.shape, S.shape, V_T.shape)
-            # print('hehehee')
             _save_fac(name, (U.cpu(), S.cpu(), V_T.cpu()))
             if keep_factors_in_mem:
                 fac_cache[name] = (U, S, V_T)
@@ -547,7 +537,6 @@ def to_low_rank_activation_aware_auto(
             fac_cache.pop(name, None)
         torch.cuda.empty_cache()
 
-    # ---------- build cost vectors ----------
     if metric == "rank":
         costs = [
             torch.cumsum(torch.arange(1, len(e) + 1, device=e.device), 0)
@@ -574,8 +563,6 @@ def to_low_rank_activation_aware_auto(
         costs = [make_cost(w, o) for w, o in zip(ws, out_shapes)]
         total_budget = sum(c[-1].item() for c in costs) * ratio_to_keep
 
-    # print(list(zip([len(cost) for cost in costs], [len(e) for e in cum_energies])))
-    # costs = [c[: len(e)] for c, e in zip(costs, cum_energies)]
     assert all(
         len(c) == len(e) for c, e in zip(costs, cum_energies)
     ), "Cost and energy vectors must have the same length."
@@ -587,18 +574,10 @@ def to_low_rank_activation_aware_auto(
     selected_indices = maximize_energy(
         cum_energies, costs, total_budget, n_iters=n_iters
     )
-    print(f"[LRA-AUTO] Rank selection done. ({time.time() - t0:.2f}s)")
 
     selected_per_mod = {n: s for (n, _), s in zip(modules_to_replace, selected_indices)}
 
-    """print("modules - selected pairs:")
-    for (n, _), s in zip(modules_to_replace, selected_indices):
-        print(f"  {n}: {s}")
-    """
-
-    # ---------- replace modules ----------
     def factory_fn(name: str, module: nn.Module):
-        # print(f"[LRA-AUTO] Replacing module '{name}' with low-rank version.")
         P, W = _load_whit(name)
         P, W = P.to(module.weight.dtype), W.to(module.weight.dtype)
 
@@ -607,15 +586,11 @@ def to_low_rank_activation_aware_auto(
         S = S.to(module.weight.device, dtype=module.weight.dtype)
         V_T = V_T.to(module.weight.device, dtype=module.weight.dtype)
         fac = (U, S, V_T)
-        # print("YEAH U.shape:", U.shape, "S.shape:", S.shape, "V_T.shape:", V_T.shape)
-
         selector = lambda *_: selected_per_mod[name]
-
         if is_linear(module):
             return factorize_linear_whitened(module, selector, P, W, factors=fac)
         if is_conv2d(module):
             return factorize_conv2d_whitened(module, selector, P, W, factors=fac)
-
         torch.cuda.empty_cache()
         return module
 
