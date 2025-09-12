@@ -51,6 +51,12 @@ parser.add_argument("--subset_size", type=int, default=4096)
 parser.add_argument("--cache_file", type=str, default="activation_cache.pt")
 parser.add_argument("--force_recache", action="store_true")
 parser.add_argument("--save_compressed_models", action="store_true")
+parser.add_argument(
+    "--eval_subset_size",
+    type=int,
+    default=5000,
+    help="If >0, use a random subset of this many samples from val for eval",
+)
 args = parser.parse_args()
 
 
@@ -125,7 +131,11 @@ eval_dl = DataLoader(
 )
 
 
-eval_ds = Subset(eval_ds, torch.randperm(len(eval_ds))[:3000])
+if args.eval_subset_size > 0 and args.eval_subset_size < len(eval_ds):
+    eval_g = torch.Generator().manual_seed(args.seed + 12345)
+    eval_perm = torch.randperm(len(eval_ds), generator=eval_g)[: args.eval_subset_size]
+    eval_ds = Subset(eval_ds, eval_perm.tolist())
+
 eval_dl = DataLoader(
     eval_ds,
     batch_size=args.batch_size_eval,
