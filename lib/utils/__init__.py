@@ -53,3 +53,6 @@ def evaluate_vision_model(
 
 cifar10_mean = [0.4914, 0.4822, 0.4465]
 cifar10_std = [0.2470, 0.2435, 0.2616]
+
+imagenet_mean = [0.485, 0.456, 0.406]
+imagenet_std = [0.229, 0.224, 0.225]
