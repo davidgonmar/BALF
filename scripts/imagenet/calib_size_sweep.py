@@ -1,3 +1,8 @@
+"""
+This script sweeps over calibration dataset sizes for activation-aware
+low-rank factorization on ImageNet.
+"""
+
 import argparse
 import json
 from pathlib import Path
@@ -11,12 +16,14 @@ from lib.utils import (
     seed_everything,
     count_model_flops,
     get_all_convs_and_linears,
+    maybe_retrieve_activation_cache,
+    make_factorization_cache_location,
+    imagenet_mean,
+    imagenet_std,
 )
 from lib.factorization.factorize import (
     to_low_rank_activation_aware_auto,
-    collect_activation_cache,
 )
-import shutil
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument(
@@ -65,8 +72,6 @@ model_dict = {
 model = model_dict[args.model_name](pretrained=True).to(device)
 model.eval()
 
-imagenet_mean = [0.485, 0.456, 0.406]
-imagenet_std = [0.229, 0.224, 0.225]
 
 eval_tf = transforms.Compose(
     [
@@ -100,7 +105,7 @@ eval_dl = DataLoader(
 
 baseline_metrics = evaluate_vision_model(model, eval_dl)
 params_orig = sum(p.numel() for p in model.parameters())
-flops_orig = count_model_flops(model, (1, 3, 224, 224), formatted=False)
+flops_orig = count_model_flops(model, (1, 3, 224, 224))
 
 print(
     f"[original] loss={baseline_metrics['loss']:.4f} "
@@ -121,11 +126,6 @@ all_results = []
 
 train_ds_full = datasets.ImageFolder(args.train_dir, transform=train_tf)
 
-
-cache_base_dir = Path(
-    f"./imagenet_calib_size_sweep/{args.model_name}/activation_caches/"
-)
-
 for calib_size in CALIB_SIZES:
     assert calib_size <= len(
         train_ds_full
@@ -138,20 +138,20 @@ for calib_size in CALIB_SIZES:
     train_dl = DataLoader(
         train_ds,
         batch_size=args.batch_size_cache,
-        shuffle=True,
-        drop_last=True if len(train_ds) >= args.batch_size_cache else False,
         num_workers=8,
         pin_memory=True,
     )
 
-    cache_file = cache_base_dir / f"activation_cache_calib_{calib_size}.pt"
-
-    if cache_file.exists():
-        activation_cache = torch.load(cache_file, map_location="cpu", weights_only=True)
-    else:
-        activation_cache = collect_activation_cache(model, train_dl, keys=layer_keys)
-        cache_file.parent.mkdir(parents=True, exist_ok=True)
-        torch.save(activation_cache, cache_file)
+    activation_cache = maybe_retrieve_activation_cache(
+        args.model_name,
+        calib_size,
+        "imagenet",
+        "calib_size_sweep",
+        args.seed,
+        model,
+        train_dl,
+        layer_keys,
+    )
 
     for ratio in args.ratios:
         model_lr = to_low_rank_activation_aware_auto(
@@ -161,17 +161,15 @@ for calib_size in CALIB_SIZES:
             inplace=False,
             keys=layer_keys,
             metric=metric_name,
-            save_dir=str(cache_base_dir),
+            save_dir=make_factorization_cache_location(
+                args.model_name, calib_size, "imagenet", "calib_size_sweep", args.seed
+            ),
         )
+        model_lr.eval()
 
-        shutil.rmtree(str(cache_base_dir))
-
-        model_eval = model_lr.to(device)
-        model_eval.eval()
-
-        params_lr = sum(p.numel() for p in model_eval.parameters())
-        flops_lr = count_model_flops(model_eval, (1, 3, 224, 224), formatted=False)
-        eval_lr = evaluate_vision_model(model_eval, eval_dl)
+        params_lr = sum(p.numel() for p in model_lr.parameters())
+        flops_lr = count_model_flops(model_lr, (1, 3, 224, 224))
+        eval_lr = evaluate_vision_model(model_lr, eval_dl)
 
         params_ratio = float(params_lr / params_orig)
         flops_ratio = float(flops_lr["total"] / flops_orig["total"])

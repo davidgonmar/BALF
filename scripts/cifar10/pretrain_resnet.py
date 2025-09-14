@@ -1,3 +1,7 @@
+"""
+This script is the one used to train our CIFAR-10 baseline models.
+"""
+
 import argparse
 import json
 from pathlib import Path

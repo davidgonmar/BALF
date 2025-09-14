@@ -1,3 +1,9 @@
+"""
+This script evaluates low-rank factorization of ResNet models on CIFAR-10.
+It sweeps over different compression ratios and records accuracy.
+Allows not only for our final proposed method, but for other baselines.
+"""
+
 import argparse
 import json
 from pathlib import Path
@@ -12,6 +18,7 @@ from lib.utils import (
     seed_everything,
     count_model_flops,
     get_all_convs_and_linears,
+    make_factorization_cache_location,
 )
 from lib.factorization.factorize import (
     to_low_rank_activation_aware_auto,
@@ -25,6 +32,7 @@ parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFo
 parser.add_argument("--model_name", required=True, choices=["resnet20", "resnet56"])
 parser.add_argument("--pretrained_path", required=True)
 parser.add_argument("--results_dir", required=True)
+parser.add_argument("--calib_size", type=int, default=1024)
 parser.add_argument(
     "--mode",
     default="flops_auto",
@@ -50,18 +58,21 @@ eval_ds = datasets.CIFAR10(root="data", train=False, transform=transform, downlo
 eval_dl = DataLoader(eval_ds, batch_size=512, shuffle=False)
 
 train_ds = datasets.CIFAR10(root="data", train=True, transform=transform, download=True)
-subset = torch.utils.data.Subset(train_ds, torch.randint(0, len(train_ds), (1024,)))
-train_dl = DataLoader(subset, batch_size=256, shuffle=True, drop_last=True)
+subset = torch.utils.data.Subset(
+    train_ds, torch.randint(0, len(train_ds), (args.calib_size,))
+)
+train_dl = DataLoader(subset, batch_size=256, shuffle=True)
 
 baseline_metrics = evaluate_vision_model(model, eval_dl)
 params_orig = sum(p.numel() for p in model.parameters())
-flops_orig = count_model_flops(model, (1, 3, 32, 32), formatted=False)
+flops_orig = count_model_flops(model, (1, 3, 32, 32))
 
 print(
     f"[original] loss={baseline_metrics['loss']:.4f} acc={baseline_metrics['accuracy']:.4f} "
     f"params={params_orig} flops_total={flops_orig['total']}"
 )
 
+# Ratios for compression and energy were hand-picked to give a good spread of results
 ratios_comp = [
     0.10,
     0.15,
@@ -106,8 +117,8 @@ ratios_energy = [
     0.99999,
     0.999999,
 ]
-layer_keys = [k for k in get_all_convs_and_linears(model)]
 
+layer_keys = [k for k in get_all_convs_and_linears(model)]
 
 activation_cache = collect_activation_cache(model, train_dl, keys=layer_keys)
 
@@ -124,12 +135,18 @@ for k in (
     if args.mode == "flops_auto" or args.mode == "params_auto":
         model_lr = to_low_rank_activation_aware_auto(
             model,
-            activation_cache,  # pass the cache instead of the dataloader
+            activation_cache,
             ratio_to_keep=k,
             inplace=False,
             keys=layer_keys,
             metric="flops" if args.mode == "flops_auto" else "params",
-            save_dir="./svd-cache/" + args.model_name,
+            save_dir=make_factorization_cache_location(
+                args.model_name,
+                args.calib_size,
+                "cifar10",
+                "factorize_sweep",
+                args.seed,
+            ),
         )
     elif args.mode == "energy_act_aware":
         model_lr = to_low_rank_activation_aware_manual(
@@ -140,7 +157,13 @@ for k in (
                 for kk in layer_keys
             },
             inplace=False,
-            save_dir="./whitening-cache/" + args.model_name,
+            save_dir=make_factorization_cache_location(
+                args.model_name,
+                args.calib_size,
+                "cifar10",
+                "factorize_sweep",
+                args.seed,
+            ),
         )
     elif args.mode == "energy":
         model_lr = to_low_rank_manual(
@@ -152,42 +175,14 @@ for k in (
             inplace=False,
         )
 
-    model_eval = model_lr
-
-    params_lr = sum(p.numel() for p in model_eval.parameters())
-    flops_raw_lr = count_model_flops(model_eval, (1, 3, 32, 32), formatted=False)
-    eval_lr = evaluate_vision_model(model_eval.to(device), eval_dl)
+    params_lr = sum(p.numel() for p in model_lr.parameters())
+    flops_raw_lr = count_model_flops(model_lr, (1, 3, 32, 32))
+    eval_lr = evaluate_vision_model(model_lr.to(device), eval_dl)
 
     print(
         f"[ratio={k:.6f}] loss={eval_lr['loss']:.4f} acc={eval_lr['accuracy']:.4f} "
         f"params_ratio={params_lr/params_orig:.4f} flops_ratio={flops_raw_lr['total']/flops_orig['total']:.4f}"
     )
-
-    ratio_dir = base_dir / args.mode
-    ratio_dir.mkdir(parents=True, exist_ok=True)
-
-    model_path = ratio_dir / "model.pth"
-    torch.save(
-        model_lr,
-        model_path,
-    )
-
-    metrics_path = ratio_dir / "metrics.json"
-    with metrics_path.open("w") as f:
-        json.dump(
-            {
-                "metric_value": k,
-                "loss": float(eval_lr["loss"]),
-                "accuracy": float(eval_lr["accuracy"]),
-                "params_ratio": float(params_lr / params_orig),
-                "flops_ratio": float(flops_raw_lr["total"] / flops_orig["total"]),
-                "mode": args.mode,
-                "model_name": args.model_name,
-                "seed": args.seed,
-            },
-            f,
-            indent=2,
-        )
 
     results.append(
         {

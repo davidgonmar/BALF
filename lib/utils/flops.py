@@ -65,6 +65,7 @@ def bmm_flop_jit(inputs: List[Any], outputs: List[Any]) -> Number:
     return flop
 
 
+# This implicitly works for grouped convolutions also
 def conv_flop_count(
     x_shape: List[int],
     w_shape: List[int],
@@ -168,7 +169,6 @@ class FlopTensor(torch.Tensor):
             elem.size(),
             strides=elem.stride(),
             storage_offset=elem.storage_offset(),
-            # TODO: clone storage aliasing
             dtype=elem.dtype,
             layout=elem.layout,
             device=elem.device,
@@ -199,7 +199,7 @@ class FlopTensor(torch.Tensor):
             for par in parents:
                 flop_counts[par][func.__name__] += flop_count
         else:
-            # print("No flop count for ", func)
+
             pass
 
         def wrap(e):
@@ -310,9 +310,7 @@ def register_flops_counter(orig_fn):
     return accepts_fn
 
 
-def count_model_flops(
-    model, input_size, dtype=torch.float32, formatted=True, backward=False
-):
+def count_model_flops(model, input_size, dtype=torch.float32, backward=False):
     """
     Count the number of FLOPs in a model.
     Args:
@@ -340,25 +338,6 @@ def count_model_flops(
     for k, v in dict(flop_counts["Global"]).items():
         total += v
     res["total"] = total
-    if formatted:
-        res = format_count_model_flops_results(res)
-
     model.load_state_dict(state_dict)
     model.train(prev_state)
     return res
-
-
-def format_count_model_flops_results(res: dict) -> dict:
-    def _fmt(n):
-        if n is None:
-            return "-"
-        abs_n = abs(n)
-        for suffix, scale in (("T", 1e12), ("G", 1e9), ("M", 1e6), ("K", 1e3)):
-            if abs_n >= scale:
-                return f"{n / scale:.2f}{suffix}"
-        return str(n)
-
-    if "total" not in res:
-        raise KeyError("`res` must contain a 'total' key")
-
-    return {k: _fmt(v) for k, v in res.items()}

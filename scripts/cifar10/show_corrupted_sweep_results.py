@@ -1,4 +1,7 @@
-#!/usr/bin/env python3
+"""
+Script to plot the results of the CIFAR-10-C robustness evaluation (images only).
+"""
+
 import argparse
 from pathlib import Path
 import json
@@ -131,17 +134,10 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
 
     df_p, mode_p, xkey_p = summarize_mode(load_results(Path(args.params_auto_json)))
-    df_p.to_csv(out / "summary_params_auto.csv", index=False)
     plot_lines_with_gap_bars(df_p, mode_p, xkey_p, out / "params_auto_cifar10c.pdf")
 
     df_f, mode_f, xkey_f = summarize_mode(load_results(Path(args.flops_auto_json)))
-    df_f.to_csv(out / "summary_flops_auto.csv", index=False)
     plot_lines_with_gap_bars(df_f, mode_f, xkey_f, out / "flops_auto_cifar10c.pdf")
-
-    pd.concat(
-        [df_p.assign(which="params_auto"), df_f.assign(which="flops_auto")],
-        ignore_index=True,
-    ).to_csv(out / "summary_combined.csv", index=False)
 
 
 if __name__ == "__main__":

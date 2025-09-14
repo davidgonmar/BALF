@@ -1,3 +1,8 @@
+"""
+This script is used to evaluate how close our allocator gets to the budged based on
+the number of iterations passed to it.
+"""
+
 import argparse
 import json
 from pathlib import Path
@@ -13,15 +18,11 @@ from lib.utils import (
     seed_everything,
     count_model_flops,
     get_all_convs_and_linears,
+    make_factorization_cache_location,
 )
 from lib.factorization.factorize import (
-    to_low_rank_activation_aware_auto,  # factorize model
-    collect_activation_cache,  # use cached activations
-)
-from lib.utils.layer_fusion import (
-    fuse_batch_norm_inference,
-    fuse_conv_bn,
-    get_conv_bn_fuse_pairs,
+    to_low_rank_activation_aware_auto,
+    collect_activation_cache,
 )
 from lib.models import load_model
 
@@ -55,6 +56,7 @@ def parse_args():
         default=49,
         help="Max n_iters to try (inclusive 0..iters_max).",
     )
+    parser.add_argument("--calib_size", type=int, default=1024)
     args = parser.parse_args()
 
     if len(args.models) != len(args.pretrained_paths):
@@ -83,9 +85,9 @@ def main():
         root="data", train=True, transform=transform, download=True
     )
     # Fixed subset for reproducibility across models in a single run
-    subset_indices = torch.randint(0, len(train_ds), (1024,))
+    subset_indices = torch.randint(0, len(train_ds), (args.calib_size,))
     subset = torch.utils.data.Subset(train_ds, subset_indices)
-    train_dl = DataLoader(subset, batch_size=256, shuffle=True, drop_last=True)
+    train_dl = DataLoader(subset, batch_size=256, shuffle=True)
 
     base_dir = Path(args.results_dir)
     base_dir.mkdir(parents=True, exist_ok=True)
@@ -95,20 +97,11 @@ def main():
     n_iters_try = list(range(args.iters_max + 1))
 
     for model_name, ckpt in zip(args.models, args.pretrained_paths):
-        print(f"\n=== Processing model: {model_name} | ckpt: {ckpt} ===")
-
-        # Load model
         model = load_model(model_name, ckpt).to(device)
-        fuse_pairs = get_conv_bn_fuse_pairs(model)
 
-        # Baseline (BN fused)
-        model_fused = fuse_conv_bn(
-            model, fuse_pairs, fuse_impl=fuse_batch_norm_inference, inplace=False
-        )
-
-        baseline_metrics = evaluate_vision_model(model_fused, eval_dl)
-        params_orig = sum(p.numel() for p in model_fused.parameters())
-        flops_orig = count_model_flops(model_fused, (1, 3, 32, 32), formatted=False)
+        baseline_metrics = evaluate_vision_model(model, eval_dl)
+        params_orig = sum(p.numel() for p in model.parameters())
+        flops_orig = count_model_flops(model, (1, 3, 32, 32))
 
         print(
             f"[{model_name} | original] loss={baseline_metrics['loss']:.4f} "
@@ -116,15 +109,9 @@ def main():
             f"params={params_orig} flops_total={flops_orig['total']}"
         )
 
-        # Layers to factorize for this model
-        layer_keys = [k for k in get_all_convs_and_linears(model)]
+        layer_keys = get_all_convs_and_linears(model)
 
-        # Build activation cache once per model, reuse in the loop
         activation_cache = collect_activation_cache(model, train_dl, keys=layer_keys)
-
-        # Per-model output dir
-        model_dir = base_dir / model_name
-        model_dir.mkdir(parents=True, exist_ok=True)
 
         results = []
 
@@ -137,16 +124,18 @@ def main():
                 keys=layer_keys,
                 metric="flops",
                 n_iters=k,
-                save_dir="./svd-cache/" + model_name,
+                save_dir=make_factorization_cache_location(
+                    args.model_name,
+                    args.calib_size,
+                    "cifar10",
+                    "n_iters_closeness",
+                    args.seed,
+                ),
             )
-            model_eval = fuse_conv_bn(
-                model_lr, fuse_pairs, fuse_impl=fuse_batch_norm_inference, inplace=False
-            )
-            params_lr = sum(p.numel() for p in model_eval.parameters())
-            flops_raw_lr = count_model_flops(
-                model_eval, (1, 3, 32, 32), formatted=False
-            )
-            eval_lr = evaluate_vision_model(model_eval.to(device), eval_dl)
+
+            params_lr = sum(p.numel() for p in model_lr.parameters())
+            flops_raw_lr = count_model_flops(model_lr, (1, 3, 32, 32))
+            eval_lr = evaluate_vision_model(model_lr, eval_dl)
 
             params_ratio = params_lr / params_orig
             flops_ratio = flops_raw_lr["total"] / flops_orig["total"]
@@ -162,7 +151,6 @@ def main():
             results.append(
                 {
                     "model": model_name,
-                    "checkpoint": ckpt,
                     "metric_value": k,
                     "loss": float(eval_lr["loss"]),
                     "accuracy": float(eval_lr["accuracy"]),
@@ -178,27 +166,6 @@ def main():
                     "ratio_to_keep": float(args.ratio_to_keep),
                 }
             )
-
-        # Write per-model results
-        output_file = model_dir / "results.json"
-        with open(output_file, "w") as f:
-            json.dump(results, f, indent=2)
-
-        # Add best-by-flops to global summary
-        best = min(results, key=lambda r: r["delta_flops_ratio"])
-        global_summary.append(
-            {
-                "model": model_name,
-                "checkpoint": ckpt,
-                "best_iters": best["try_n_iters"],
-                "best_loss": best["loss"],
-                "best_accuracy": best["accuracy"],
-                "params_ratio": best["params_ratio"],
-                "flops_ratio": best["flops_ratio"],
-                "baseline_accuracy": best["baseline_accuracy"],
-                "results_path": str(output_file),
-            }
-        )
 
     # Top-level summary
     with open(base_dir / "summary.json", "w") as f:

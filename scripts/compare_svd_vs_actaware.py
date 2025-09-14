@@ -1,7 +1,5 @@
 import argparse
 from pathlib import Path
-import math
-import shutil
 
 import torch
 import torch.nn as nn
@@ -14,11 +12,11 @@ from lib.factorization.factorize import (
     collect_activation_cache,
 )
 
-# --------------------------
-# Tiny single-layer wrappers
-# --------------------------
+
+# Define simple models for testing
 
 
+# A single conv layer
 class SingleConv(nn.Module):
     def __init__(self, in_ch, out_ch, ksize, stride=1, padding=None, bias=False):
         super().__init__()
@@ -32,6 +30,7 @@ class SingleConv(nn.Module):
         return self.conv(x)
 
 
+# A single grouped conv layer
 class SingleGroupedConv(nn.Module):
     def __init__(
         self, in_ch, out_ch, ksize, stride=1, padding=None, bias=False, groups=1
@@ -39,14 +38,6 @@ class SingleGroupedConv(nn.Module):
         super().__init__()
         if padding is None:
             padding = ksize // 2
-
-        if (in_ch % groups != 0) or (out_ch % groups != 0):
-            g = math.gcd(in_ch, out_ch)
-            if g <= 0:
-                raise ValueError(f"Invalid groups for in={in_ch}, out={out_ch}")
-            print(f"[warn] groups={groups} not valid; using gcd={g}")
-            groups = g
-
         self.gconv = nn.Conv2d(
             in_ch,
             out_ch,
@@ -69,11 +60,6 @@ class SingleLinear(nn.Module):
     def forward(self, x):
         x = torch.flatten(x, 1)
         return self.fc(x)
-
-
-# --------------------------
-# Rank helpers + metrics
-# --------------------------
 
 
 def matrixize_weight_for_rank(w: torch.Tensor):
@@ -164,11 +150,6 @@ def sweep_layer(
             }
         )
     return rows
-
-
-# --------------------------
-# Main
-# --------------------------
 
 
 def main():
@@ -304,7 +285,4 @@ def main():
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    finally:
-        shutil.rmtree("./whitening-cache-tmp/", ignore_errors=True)
+    main()

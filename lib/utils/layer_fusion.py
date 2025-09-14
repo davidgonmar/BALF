@@ -148,7 +148,8 @@ def fuse_batch_norm_inference(
 def get_conv_bn_fuse_pairs(model):
     """
     Return a list of (conv_name, bn_name) tuples for adjacent Conv2d->BatchNorm2d
-    modules across the whole model.
+    modules across the whole model. Not tested for general models, just for the ones
+    used in the paper to measure inference speedup.
     """
     pairs = []
     for parent_name, parent in model.named_modules():

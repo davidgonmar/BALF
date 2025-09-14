@@ -1,8 +1,12 @@
-# run_cifar10c_auto.py
+"""
+This script evaluates different compressed models on CIFAR-10-C and the original CIFAR-10.
+The objective is to measure how much accuracy degrades under distribution shift
+for different compression ratios.
+"""
+
 import argparse
 import json
 from pathlib import Path
-from datetime import datetime
 
 import numpy as np
 import torch
@@ -16,20 +20,15 @@ from lib.utils import (
     seed_everything,
     count_model_flops,
     get_all_convs_and_linears,
+    make_factorization_cache_location,
 )
 from lib.factorization.factorize import (
-    to_low_rank_activation_aware_auto,  # AUTO methods only
-    collect_activation_cache,  # use cached activations
-)
-from lib.utils.layer_fusion import (
-    fuse_batch_norm_inference,
-    fuse_conv_bn,
-    get_conv_bn_fuse_pairs,
+    to_low_rank_activation_aware_auto,
+    collect_activation_cache,
 )
 from lib.models import load_model
 
 
-# ---------- CIFAR-10-C Dataset (no TF/TFDS required) ----------
 CIFAR10C_CORRUPTIONS = [
     "gaussian_noise",
     "shot_noise",
@@ -50,11 +49,6 @@ CIFAR10C_CORRUPTIONS = [
 
 
 class CIFAR10CSubset(Dataset):
-    """
-    A single corruption at a single severity for CIFAR-10-C.
-    Uses numpy memmap to avoid loading all 50k images into RAM.
-    """
-
     def __init__(self, root_dir, corruption, severity, transform):
         assert corruption in CIFAR10C_CORRUPTIONS, f"Unknown corruption: {corruption}"
         assert 1 <= severity <= 5, "severity must be in [1..5]"
@@ -78,7 +72,6 @@ class CIFAR10CSubset(Dataset):
         self.start = start
         self.end = end
 
-        # Basic checks
         if self.data.shape[0] != 50000 or self.labels.shape[0] != 50000:
             raise ValueError(
                 "Unexpected CIFAR-10-C shapes; expected 50k images & labels."
@@ -89,7 +82,7 @@ class CIFAR10CSubset(Dataset):
 
     def __getitem__(self, idx):
         i = self.start + idx
-        img = np.array(self.data[i], copy=True)  # move to memory  # (32, 32, 3) uint8
+        img = np.array(self.data[i], copy=True)  # move to writable memory
         target = int(self.labels[i])
         img = self.transform(img)
 
@@ -121,18 +114,20 @@ def main():
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--batch_size", type=int, default=512)
     parser.add_argument("--num_workers", type=int, default=2)
+    parser.add_argument("--calib_size", type=int, default=1024)
     args = parser.parse_args()
 
+    # Setup
     seed_everything(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # ----- Load model -----
+    # Load model
     model = load_model(
         args.model_name,
         pretrained_path=args.pretrained_path,
     ).to(device)
 
-    # ----- Transforms -----
+    # Original data
     transform = transforms.Compose(
         [
             transforms.ToTensor(),
@@ -140,7 +135,6 @@ def main():
         ]
     )
 
-    # ----- Clean CIFAR-10 (test) -----
     eval_ds = datasets.CIFAR10(
         root="data", train=False, transform=transform, download=True
     )
@@ -152,57 +146,39 @@ def main():
         pin_memory=True,
     )
 
-    # ----- Small calibration subset from train for activations -----
     train_ds = datasets.CIFAR10(
         root="data", train=True, transform=transform, download=True
     )
-    # 1024 random samples as in your original script
-    subset_idx = torch.randint(0, len(train_ds), (1024,))
+
+    subset_idx = torch.randint(0, len(train_ds), (args.calib_size,))
     subset = torch.utils.data.Subset(train_ds, subset_idx)
     train_dl = DataLoader(
         subset,
         batch_size=256,
         shuffle=True,
-        drop_last=True,
         num_workers=args.num_workers,
         pin_memory=True,
     )
 
-    # ----- (Optional) BN fusion for stable eval -----
-    fuse_pairs = get_conv_bn_fuse_pairs(model)
-    model_fused = fuse_conv_bn(
-        model, fuse_pairs, fuse_impl=fuse_batch_norm_inference, inplace=False
-    ).to(device)
-
-    # ----- Baseline metrics (clean) -----
-    baseline_clean = evaluate_vision_model(model_fused, eval_dl)
-    params_orig = sum(p.numel() for p in model_fused.parameters())
-    flops_orig = count_model_flops(model_fused, (1, 3, 32, 32), formatted=False)
+    baseline_clean = evaluate_vision_model(model, eval_dl)
+    params_orig = sum(p.numel() for p in model.parameters())
+    flops_orig = count_model_flops(model, (1, 3, 32, 32))
 
     print(
         f"[baseline/clean] loss={baseline_clean['loss']:.4f} acc={baseline_clean['accuracy']:.4f} "
         f"params={params_orig} flops_total={flops_orig['total']}"
     )
 
-    # ----- Build activation cache once -----
-    layer_keys = [k for k in get_all_convs_and_linears(model)]
+    # We only need to build the activation cache once
+    layer_keys = get_all_convs_and_linears(model)
     activation_cache = collect_activation_cache(model, train_dl, keys=layer_keys)
 
-    # ----- Ratios for AUTO methods -----
+    # Fixed ratios
     ratios_comp = [0.6, 0.7, 0.8]
 
-    # ----- Prepare output structure -----
     results = {
-        "meta": {
-            "timestamp": datetime.utcnow().isoformat(timespec="seconds") + "Z",
-            "model_name": args.model_name,
-            "pretrained_path": str(args.pretrained_path),
-            "mode": args.mode,
-            "seed": args.seed,
-            "cifar10c_root": str(args.cifar10c_root),
-            "corruptions": CIFAR10C_CORRUPTIONS,
-            "severities": [1, 2, 3, 4, 5],
-        },
+        # for each compression config, clean stores the results on the original CIFAR-10
+        # variants denotes the different compression configs
         "clean": {
             "baseline": {
                 "loss": float(baseline_clean["loss"]),
@@ -212,10 +188,11 @@ def main():
             },
             "variants": [],  # filled below
         },
+        # we repeat the same for each corruption/severity in CIFAR-10-C
         "cifar10c": [],  # list of {corruption, severity, baseline:{...}, variants:[...]}
     }
 
-    # ----- Evaluate baseline on all CIFAR-10-C subsets -----
+    # We evaluate all CIFAR-10-C subsets for the baseline model first
     for corr in CIFAR10C_CORRUPTIONS:
         for sev in [1, 2, 3, 4, 5]:
             ds = CIFAR10CSubset(args.cifar10c_root, corr, sev, transform=transform)
@@ -226,7 +203,7 @@ def main():
                 num_workers=args.num_workers,
                 pin_memory=True,
             )
-            base_metrics = evaluate_vision_model(model_fused, dl)
+            base_metrics = evaluate_vision_model(model, dl)
             results["cifar10c"].append(
                 {
                     "corruption": corr,
@@ -249,33 +226,32 @@ def main():
             if rec["corruption"] == corr and rec["severity"] == sev:
                 rec["variants"].append(variant_entry)
                 return
-        raise RuntimeError(
-            "Internal error: missing baseline entry for corruption/severity"
-        )
+        raise RuntimeError("Missing baseline entry for corruption/severity")
 
-    # ----- Loop over AUTO variants; evaluate clean + all CIFAR-10-C subsets -----
+    # Loop over variants and ratios
     for k in ratios_comp:
-        print(f"\n=== Building AUTO variant: {args.mode} ratio_to_keep={k:.3f} ===")
         model_lr = to_low_rank_activation_aware_auto(
             model,
-            activation_cache,  # pass the cache instead of the dataloader
+            activation_cache,
             ratio_to_keep=k,
             inplace=False,
             keys=layer_keys,
             metric="flops" if args.mode == "flops_auto" else "params",
-            save_dir=f"./svd-cache/{args.model_name}",
+            save_dir=make_factorization_cache_location(
+                args.model_name,
+                args.calib_size,
+                "cifar10",
+                "corrupted_sweep",
+                args.seed,
+            ),
         )
-        model_eval = fuse_conv_bn(
-            model_lr, fuse_pairs, fuse_impl=fuse_batch_norm_inference, inplace=False
-        ).to(device)
-
-        params_lr = sum(p.numel() for p in model_eval.parameters())
-        flops_raw_lr = count_model_flops(model_eval, (1, 3, 32, 32), formatted=False)
+        params_lr = sum(p.numel() for p in model_lr.parameters())
+        flops_raw_lr = count_model_flops(model_lr, (1, 3, 32, 32))
         flops_ratio = float(flops_raw_lr["total"] / flops_orig["total"])
         params_ratio = float(params_lr / params_orig)
 
         # Clean eval for this variant
-        eval_clean_lr = evaluate_vision_model(model_eval, eval_dl)
+        eval_clean_lr = evaluate_vision_model(model_lr, eval_dl)
         clean_entry = {
             "metric_value": float(k),
             "loss": float(eval_clean_lr["loss"]),
@@ -304,7 +280,8 @@ def main():
                     num_workers=args.num_workers,
                     pin_memory=True,
                 )
-                eval_lr = evaluate_vision_model(model_eval, dl)
+                # accuracy of the compressed model on the corrupted data
+                eval_lr = evaluate_vision_model(model_lr, dl)
 
                 variant_entry = {
                     "metric_value": float(k),
@@ -320,11 +297,11 @@ def main():
                     f"loss={eval_lr['loss']:.4f} acc={eval_lr['accuracy']:.4f}"
                 )
 
-        # free GPU memory between variants
-        del model_lr, model_eval
+        # free GPU memory
+        del model_lr
         torch.cuda.empty_cache()
 
-    # ----- Write single JSON file -----
+    # Write results
     out_path = Path(args.results_json)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open("w") as f:
