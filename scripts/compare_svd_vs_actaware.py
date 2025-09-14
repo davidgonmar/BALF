@@ -185,12 +185,10 @@ def main():
     dl_cache = DataLoader(
         Subset(ds_cache, range(args.n_samples_cache)),
         batch_size=args.batch_size,
-        shuffle=False,
     )
     dl_eval = DataLoader(
         Subset(ds_eval, range(args.n_samples_eval)),
         batch_size=args.batch_size,
-        shuffle=False,
     )
 
     base_conv = (

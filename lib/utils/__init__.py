@@ -29,7 +29,6 @@ def evaluate_vision_model(
     model: torch.nn.Module,
     dataloader: torch.utils.data.DataLoader,
     eval=True,
-    fp16=False,
 ) -> Dict[str, float]:
     prev_state = model.training
     if eval:
@@ -39,29 +38,27 @@ def evaluate_vision_model(
     import time
 
     device = next(model.parameters()).device
-    ctx = torch.amp.autocast(device_type=device.type, enabled=fp16, dtype=torch.float16)
-    with ctx:
-        timer_start = time.time()
-        loss_meter = AverageMeter()
-        acc_meter = AverageMeter()
-        criterion = torch.nn.CrossEntropyLoss()
-        for images, labels in dataloader:
-            images, labels = images.to(device), labels.to(device)
+    timer_start = time.time()
+    loss_meter = AverageMeter()
+    acc_meter = AverageMeter()
+    criterion = torch.nn.CrossEntropyLoss()
+    for images, labels in dataloader:
+        images, labels = images.to(device), labels.to(device)
 
-            outputs = model(images)
-            loss = criterion(outputs, labels)
-            _, predicted = torch.max(outputs.data, 1)
-            correct = (predicted == labels).sum().item()
-            batch_size = labels.size(0)
-            accuracy = correct / batch_size
+        outputs = model(images)
+        loss = criterion(outputs, labels)
+        _, predicted = torch.max(outputs.data, 1)
+        correct = (predicted == labels).sum().item()
+        batch_size = labels.size(0)
+        accuracy = correct / batch_size
 
-            loss_meter.update(loss.item(), batch_size)
-            acc_meter.update(accuracy, batch_size)
+        loss_meter.update(loss.item(), batch_size)
+        acc_meter.update(accuracy, batch_size)
 
-        timer_end = time.time()
-        print(
-            f"Eval time: {timer_end - timer_start:.2f}s over {len(dataloader.dataset)} samples"
-        )
+    timer_end = time.time()
+    print(
+        f"Eval time: {timer_end - timer_start:.2f}s over {len(dataloader.dataset)} samples"
+    )
     model.train(prev_state)
     return {"accuracy": acc_meter.avg, "loss": loss_meter.avg}
 

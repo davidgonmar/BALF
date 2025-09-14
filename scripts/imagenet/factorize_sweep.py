@@ -147,7 +147,7 @@ train_dl = DataLoader(
     pin_memory=True,
 )
 
-baseline_metrics = evaluate_vision_model(model, eval_dl, fp16=True)
+baseline_metrics = evaluate_vision_model(model, eval_dl)
 params_orig = sum(p.numel() for p in model.parameters())
 flops_orig = count_model_flops(model, (1, 3, 224, 224))
 
@@ -216,7 +216,7 @@ for k in get_values_for_model_and_mode(args.model_name, args.mode):
         )
     params_lr = sum(p.numel() for p in model_lr.parameters())
     flops_raw_lr = count_model_flops(model_lr, (1, 3, 224, 224))
-    eval_lr = evaluate_vision_model(model_lr.to(device), eval_dl, fp16=True)
+    eval_lr = evaluate_vision_model(model_lr.to(device), eval_dl)
 
     print(
         f"[ratio={k:.6f}] loss={eval_lr['loss']:.4f} acc={eval_lr['accuracy']:.4f} "
