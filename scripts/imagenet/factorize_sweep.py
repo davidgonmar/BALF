@@ -31,7 +31,6 @@ parser.add_argument(
     required=True,
     choices=[
         "resnet18",
-        "resnet34",
         "resnet50",
         "mobilenet_v2",
         "resnext50_32x4d",
@@ -127,7 +126,6 @@ if args.eval_subset_size > 0 and args.eval_subset_size < len(eval_ds):
 eval_dl = DataLoader(
     eval_ds,
     batch_size=args.batch_size_eval,
-    shuffle=True,
     num_workers=8,
     pin_memory=True,
 )
@@ -135,14 +133,16 @@ eval_dl = DataLoader(
 train_ds_full = datasets.ImageFolder(args.train_dir, transform=train_tf)
 
 if args.calib_size > 0 and args.calib_size < len(train_ds_full):
-    idx = torch.randint(0, len(train_ds_full), (args.calib_size,))
-    train_ds = Subset(train_ds_full, idx.tolist())
+    train_g = torch.Generator().manual_seed(args.seed + 12345)
+    train_perm = torch.randperm(len(train_ds_full), generator=train_g)[
+        : args.calib_size
+    ]
+    train_ds = Subset(train_ds_full, train_perm.tolist())
 else:
     train_ds = train_ds_full
 train_dl = DataLoader(
     train_ds,
     batch_size=args.batch_size_cache,
-    shuffle=True,
     num_workers=8,
     pin_memory=True,
 )
@@ -188,7 +188,6 @@ for k in get_values_for_model_and_mode(args.model_name, args.mode):
                 args.seed,
             ),
         )
-        print(model_lr)
     elif args.mode == "energy_act_aware":
         model_lr = to_low_rank_activation_aware_manual(
             model,
@@ -242,6 +241,7 @@ for k in get_values_for_model_and_mode(args.model_name, args.mode):
             / "models"
             / f"{args.model_name}_mode{args.mode}_ratio{k:.5f}.pth"
         )
+        model_path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(model_lr, model_path)
 
 

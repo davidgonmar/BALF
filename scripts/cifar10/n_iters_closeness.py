@@ -79,15 +79,15 @@ def main():
     eval_ds = datasets.CIFAR10(
         root="data", train=False, transform=transform, download=True
     )
-    eval_dl = DataLoader(eval_ds, batch_size=512, shuffle=False)
+    eval_dl = DataLoader(eval_ds, batch_size=512)
 
     train_ds = datasets.CIFAR10(
         root="data", train=True, transform=transform, download=True
     )
     # Fixed subset for reproducibility across models in a single run
-    subset_indices = torch.randint(0, len(train_ds), (args.calib_size,))
+    subset_indices = torch.randperm(len(train_ds))[: args.calib_size]
     subset = torch.utils.data.Subset(train_ds, subset_indices)
-    train_dl = DataLoader(subset, batch_size=256, shuffle=True)
+    train_dl = DataLoader(subset, batch_size=256)
 
     base_dir = Path(args.results_dir)
     base_dir.mkdir(parents=True, exist_ok=True)

@@ -55,13 +55,13 @@ transform = transforms.Compose(
 )
 
 eval_ds = datasets.CIFAR10(root="data", train=False, transform=transform, download=True)
-eval_dl = DataLoader(eval_ds, batch_size=512, shuffle=False)
+eval_dl = DataLoader(eval_ds, batch_size=512)
 
 train_ds = datasets.CIFAR10(root="data", train=True, transform=transform, download=True)
 subset = torch.utils.data.Subset(
-    train_ds, torch.randint(0, len(train_ds), (args.calib_size,))
+    train_ds, torch.randperm(len(train_ds))[: args.calib_size]
 )
-train_dl = DataLoader(subset, batch_size=256, shuffle=True)
+train_dl = DataLoader(subset, batch_size=256)
 
 baseline_metrics = evaluate_vision_model(model, eval_dl)
 params_orig = sum(p.numel() for p in model.parameters())

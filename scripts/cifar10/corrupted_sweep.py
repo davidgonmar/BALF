@@ -141,7 +141,6 @@ def main():
     eval_dl = DataLoader(
         eval_ds,
         batch_size=args.batch_size,
-        shuffle=False,
         num_workers=args.num_workers,
         pin_memory=True,
     )
@@ -150,12 +149,11 @@ def main():
         root="data", train=True, transform=transform, download=True
     )
 
-    subset_idx = torch.randint(0, len(train_ds), (args.calib_size,))
+    subset_idx = torch.randperm(len(train_ds))[: args.calib_size].tolist()
     subset = torch.utils.data.Subset(train_ds, subset_idx)
     train_dl = DataLoader(
         subset,
         batch_size=256,
-        shuffle=True,
         num_workers=args.num_workers,
         pin_memory=True,
     )
@@ -199,7 +197,6 @@ def main():
             dl = DataLoader(
                 ds,
                 batch_size=args.batch_size,
-                shuffle=False,
                 num_workers=args.num_workers,
                 pin_memory=True,
             )
@@ -276,7 +273,6 @@ def main():
                 dl = DataLoader(
                     ds,
                     batch_size=args.batch_size,
-                    shuffle=False,
                     num_workers=args.num_workers,
                     pin_memory=True,
                 )
