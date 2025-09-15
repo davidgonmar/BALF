@@ -1,6 +1,44 @@
-## Reproducing
+# Paper title (TBD)
 
-The scripts to reproduce the experiments can be found in `./scripts`.
+This repository contains the code to reproduce the experiments from the paper "paper title".
+
+The `./lib` directory contains the implementation of the generalized activation-aware factorization method, as well as the rank allocation strategy.
+It also allows for energy allocation and selecting fixed rank ratios per layer, as well as regular (non-activation-aware) SVD-based factorization (energy-based).
+
+It includes both the methods to transform a model into its factorized counterpart, as well as the factorized layers.
+
+
+## Reproducing Experiments
+
+### Installing Dependencies
+You can install the required packages using pip:
+```bash
+pip install -r requirements.txt
+```
+
+### Preparing the Datasets
+
+The experiments need the CIFAR-10 dataset (train and eval), the CIFAR-10-C (eval) dataset, a subset of the ImageNet training set (to use as calibration data), and the ImageNet validation set (eval).
+
+The CIFAR-10 dataset is automatically handled by Pytorch.
+
+For the CIFAR-10-C dataset, download it from [here](https://zenodo.org/record/2535967#.Yk1n6HZBzDI) (at the time of writing) and extract it to `./CIFAR-10-C`.
+
+For ImageNet, we provide the scripts we used to extract everything. You need to download the validation and training sets, as well as the dev-kit from [here](http://www.image-net.org/download). Then, use `./scripts/imagenet/extract_val.py` and `./scripts/imagenet/extract_calib.py` with the appropriate parameters to extract the sets. These will be placed in `./imagenet-val` and `./imagenet-calib` respectively.
+
+The experiment scripts will pick those paths automatically.
+
+
+### CIFAR Models Pre-Training
+
+For ImageNet experiments, we use publicly available checkpoints. For CIFAR-10 models, we train our own following standard recipes. In order to train the models, use
+```bash
+./scripts/cifar10/pretrain_resnet.sh
+```
+It will train both the ResNet-20 and ResNet-56 models.
+
+
+### Running the Experiments
 
 Make sure to run
 ```
@@ -8,11 +46,14 @@ export PYTHONPATH=.
 ```
 before running the scripts.
 
+The scripts to reproduce the experiments can be found in `./scripts`. In general, for all experiments, you will find a ``.sh`` script that calls the corresponding Python script with the appropriate parameters. Those are the ones used to obtain the results in the paper. 
 
-### CIFAR Models Pre-Training
+A lot of experiments cache activations and SVD artifacts so that they do not need to be recomputed every time. These are stored in `./activation-cache` and `./factorization-cache` respectively. You can delete those folders (or the ones specific to the script or model you want to run) if you want to recompute everything from scratch.
 
-For ImageNet experiments, we use publicly available checkpoints. For CIFAR-10 models, we train our own. In order to train the models, use
-```
-./scripts/train_cifar.sh
-```
-"# general-activation-aware-svd-factorization" 
+Results are printed to the console and also saved in a text file in `./results`. Those include raw data in the form of json files, as well as plots (in pdf format) used in the paper and tabular data in LaTeX format.
+
+Most scripts usage can be identified from the name. They generally also include a header with a brief description of their purpose.
+
+
+## License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details (TODO: add when ready).
