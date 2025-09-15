@@ -79,7 +79,8 @@ Does not require data.
 # ALDS results (https://openreview.net/pdf?id=BvJkwMhyInm)
 
 On ResNet-20, CIFAR-10
-These are params percentage delta and accuracy delta
+These are params percentage elimination and accuracy delta
+
 9,88220420963669; 0,08514264361274648
 17,44383484143143; -0,3982636209021866
 23,705486077885613; -1,4968761240889261
@@ -95,3 +96,57 @@ These are params percentage delta and accuracy delta
 66,95096440283157; -56,65987993420478
 69,1542660375843; -62,69648638171702
 71,84285978703863; -66,87867347900945
+
+# SVPR Results (https://openaccess.thecvf.com/content/ACCV2020/papers/He_Feature_Variance_Ratio-Guided_Channel_Pruning_for_Deep_Convolutional_Network_Acceleration_ACCV_2020_paper.pdf?utm_source=chatgpt.com)
+
+ResNet-20, CIFAR-10, no FT. These are FLOPs percentage elimination and abs accuracy.
+-0,1863045347087926; 92,5
+5,036132602621958; 92,5
+12,290726413066839; 91,25
+19,835455620030086; 90
+39,3807758435418; 80,13888888888889
+54,003331184182244; 60,416666666666664
+59,81208360197721; 54,166666666666664
+70,56280894046851; 37,91666666666666
+79,8593649258543; 25,27777777777777
+29,50985923060392; 86,66666666666666
+49,35418009886094; 67,63888888888889
+
+Transformed data: FLOPs delta and acc delta
+-0,1863045347087926; 0
+5,036132602621958; 0
+12,290726413066839; -1,25
+19,835455620030086; -2,5
+39,3807758435418; -12,361111111111114
+54,003331184182244; -32,083333333333336
+59,81208360197721; -38,333333333333336
+70,56280894046851; -54,583333333333343
+79,8593649258543; -67,222222222222229
+29,50985923060392; -5,833333333333343
+49,35418009886094; -24,861111111111114
+
+
+# SVD-NAS
+
+| Model         | Method        | Δ FLOPs (%) | Δ Params (%) | Δ Top-1 (pp) | Δ Top-5 (pp) |
+|---------------|---------------|-------------|--------------|--------------|--------------|
+| ResNet-18     | SVD-NAS       | -58.60      | -68.05       | -13.35       | -9.14        |
+| ResNet-18     | ALDS [18]     | -42.31      | -65.14       | -18.70       | -13.38       |
+| ResNet-18     | LR-S2 [8]     | -56.49      | -57.91       | -38.13       | -33.93       |
+| ResNet-18     | F-Group [21]  | -42.31      | -10.66       | -69.34       | -87.63       |
+| MobileNetV2   | SVD-NAS       | -12.54      | -9.00        | -15.09       | -7.79        |
+| MobileNetV2   | ALDS [18]     | -2.62       | -37.61       | -16.95       | -10.91       |
+| MobileNetV2   | LR-S2 [8]     | -3.81       | -6.24        | -17.46       | -10.34       |
+| EfficientNet-B0 | SVD-NAS     | -22.17      | -16.41       | -10.11       | -5.49        |
+| EfficientNet-B0 | ALDS [18]   | -7.65       | -10.02       | -16.88       | -9.96        |
+| EfficientNet-B0 | LR-S2 [8]   | -18.73      | -14.56       | -22.08       | -14.15       |
+
+
+# Training-Free Restoration of Pruned Neural Networks
+
+### MobileNet-V2 (Acc. 71.88) — L2-norm (Ours only)
+
+| Pruning Ratio | Accuracy | Δ Accuracy |
+|---------------|----------|------------|
+| 5%            | 67.46    | -4.42      |
+| 10%           | 53.41    | -18.47     |

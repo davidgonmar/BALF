@@ -67,7 +67,6 @@ eval_ds = datasets.CIFAR10(
 eval_dl = DataLoader(
     eval_ds,
     batch_size=args.batch_size_eval,
-    shuffle=False,
     num_workers=8,
     pin_memory=True,
 )
@@ -109,7 +108,6 @@ for calib_size in CALIB_SIZES:
     train_dl = DataLoader(
         train_ds,
         batch_size=args.batch_size_cache,
-        shuffle=True,
         num_workers=8,
         pin_memory=True,
     )

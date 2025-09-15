@@ -422,10 +422,10 @@ def collect_activation_cache(model: nn.Module, data, keys):
         acts[n] += (
             a.transpose(-1, -2) @ a / length
         )  # we divide by length to avoid accumulation of very big numbers
-        # but we actually need to divide by sum((a_i).shape[0], i) # eg the total number of elements reduced in the inner dimension
+        # but we actually need to divide by the total number of elements reduced in the inner dimension
         acts[n] = acts[n].to("cpu").detach()
         outs.setdefault(n, out.shape)
-        inner_dim_count[n] = inner_dim_count.get(n, 0) + a.shape[0]
+        inner_dim_count[n] = inner_dim_count.get(n, 0) + a.shape[1]
 
     for n, m in mods:
         hooks.append(m.register_forward_hook(functools.partial(fn, n)))

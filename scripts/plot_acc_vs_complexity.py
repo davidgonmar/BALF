@@ -24,6 +24,18 @@ plt.rcParams.update(
     }
 )
 
+model_name_to_pretty_name = {
+    "resnet20": "ResNet-20",
+    "resnet56": "ResNet-56",
+    "resnet18": "ResNet-18",
+    "resnet50": "ResNet-50",
+    "mobilenet_v2": "MobileNet-V2",
+    "resnext50_32x4d": "ResNeXt-50 (32x4d)",
+    "resnext101_32x8d": "ResNeXt-101 (32x8d)",
+    "vit_b_16": "ViT-B/16",
+    "deit_b_16": "DeiT-B/16",
+}
+
 
 def load_results(path):
     """Load JSON results from a given file path.
@@ -41,8 +53,14 @@ def load_results(path):
 
 
 def extract_xy(results, x_key, y_key="accuracy"):
-    xs = [r[x_key] for r in results if x_key in r and y_key in r]
-    ys = [r[y_key] for r in results if x_key in r and y_key in r]
+    if not results or not isinstance(results, (list, tuple)):
+        return [], []
+    xs = [
+        r[x_key] for r in results if isinstance(r, dict) and x_key in r and y_key in r
+    ]
+    ys = [
+        r[y_key] for r in results if isinstance(r, dict) and x_key in r and y_key in r
+    ]
     if not xs or len(xs) != len(ys):
         return [], []
     pairs = sorted(zip(xs, ys), key=lambda t: t[0])
@@ -61,6 +79,14 @@ def plot_tradeoff(ax, x_vals, y_vals, marker, linestyle, color, alpha=0.9, label
         alpha=alpha,
         color=color,
     )
+
+
+def _pad_limits(vmin, vmax, frac=0.05):
+    """Avoid singular transform when vmin == vmax."""
+    if vmin == vmax:
+        pad = (abs(vmin) if vmin != 0 else 1.0) * frac
+        return vmin - pad, vmax + pad
+    return vmin, vmax
 
 
 if __name__ == "__main__":
@@ -94,14 +120,14 @@ if __name__ == "__main__":
         "flops_auto": load_results(args.flops_json),
         "params_auto": load_results(args.params_json),
         "energy": load_results(args.energy_json),
-        "act-aware": load_results(args.energy_act_aware_json),
+        "energy_aa": load_results(args.energy_act_aware_json),
     }
 
     # Method → color mapping (consistent across both axes)
     method_color = {
         "auto": "C0",
         "energy": "C1",
-        "energy-aw": "C2",
+        "energy_aa": "C2",
     }
 
     # Markers per series
@@ -109,7 +135,7 @@ if __name__ == "__main__":
         "flops_auto": "o",
         "params_auto": "o",
         "energy": "s",
-        "act-aware": "^",
+        "energy_aa": "^",
     }
 
     # Helper to map series key -> method bucket for colors
@@ -118,8 +144,8 @@ if __name__ == "__main__":
             return "auto"
         if key == "energy":
             return "energy"
-        if key == "act-aware":
-            return "energy-aw"
+        if key == "energy_aa":
+            return "energy_aa"  # <-- fixed: underscore, not hyphen
         return "auto"
 
     # Create axes: bottom (FLOPs), top (Params)
@@ -130,7 +156,7 @@ if __name__ == "__main__":
     flops_x_all, params_x_all = [], []
 
     # --- FLOPs axis: ONLY flops_auto + energy + act-aware (dashed) ---
-    for key in ["flops_auto", "energy", "act-aware"]:
+    for key in ["flops_auto", "energy", "energy_aa"]:
         results = data.get(key)
         if results:
             x_vals, y_vals = extract_xy(results, "flops_ratio")
@@ -151,7 +177,7 @@ if __name__ == "__main__":
             print(f"Skipping '{key}' on FLOPs axis: no data.")
 
     # --- Params axis: ONLY params_auto + energy + act-aware (solid) ---
-    for key in ["params_auto", "energy", "act-aware"]:
+    for key in ["params_auto", "energy", "energy_aa"]:
         results = data.get(key)
         if results:
             x_vals, y_vals = extract_xy(results, "params_ratio")
@@ -176,11 +202,11 @@ if __name__ == "__main__":
         plt.close(fig)
         raise SystemExit(0)
 
-    # Independent x-lims for each axis
+    # Independent x-lims for each axis (with padding to avoid singular transforms)
     if flops_x_all:
-        ax.set_xlim(min(flops_x_all), max(flops_x_all))
+        ax.set_xlim(*_pad_limits(min(flops_x_all), max(flops_x_all)))
     if params_x_all:
-        ax_top.set_xlim(min(params_x_all), max(params_x_all))
+        ax_top.set_xlim(*_pad_limits(min(params_x_all), max(params_x_all)))
 
     # Clean aesthetics
     for spine in ["top", "right"]:
@@ -193,7 +219,8 @@ if __name__ == "__main__":
     ax.set_xlabel("FLOPs Ratio")
     ax_top.set_xlabel("Params Ratio")
     ax.set_ylabel("Accuracy")
-    ax.set_title(f"{args.model_name}: Accuracy vs FLOPs/Params")
+    pretty = model_name_to_pretty_name.get(args.model_name, args.model_name)
+    ax.set_title(f"{pretty} Accuracy vs FLOPs/Params")
 
     # --------- Two legends in the TOP-LEFT ----------
     # Legend A: line styles (axis semantics)
@@ -214,7 +241,7 @@ if __name__ == "__main__":
         Line2D([0], [0], linestyle="-", color=method_color["auto"], label="auto"),
         Line2D([0], [0], linestyle="-", color=method_color["energy"], label="energy"),
         Line2D(
-            [0], [0], linestyle="-", color=method_color["energy-aw"], label="energy-aw"
+            [0], [0], linestyle="-", color=method_color["energy_aa"], label="energy-aa"
         ),
     ]
     ax.legend(

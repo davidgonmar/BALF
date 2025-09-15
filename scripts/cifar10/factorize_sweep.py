@@ -27,6 +27,7 @@ from lib.factorization.factorize import (
     collect_activation_cache,
 )
 from lib.models import load_model
+from scripts.cifar10.factorize_sweep_values import get_values_for_model_and_mode
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("--model_name", required=True, choices=["resnet20", "resnet56"])
@@ -72,53 +73,9 @@ print(
     f"params={params_orig} flops_total={flops_orig['total']}"
 )
 
-# Ratios for compression and energy were hand-picked to give a good spread of results
-ratios_comp = [
-    0.10,
-    0.15,
-    0.20,
-    0.25,
-    0.30,
-    0.35,
-    0.40,
-    0.45,
-    0.50,
-    0.55,
-    0.60,
-    0.65,
-    0.70,
-    0.75,
-    0.80,
-    0.85,
-    0.90,
-    0.95,
-    1.00,
-]
-
-ratios_energy = [
-    0.01,
-    0.05,
-    0.1,
-    0.2,
-    0.3,
-    0.4,
-    0.5,
-    0.6,
-    0.7,
-    0.8,
-    0.9,
-    0.95,
-    0.99,
-    0.992,
-    0.995,
-    0.997,
-    0.999,
-    0.9999,
-    0.99999,
-    0.999999,
-]
 
 layer_keys = [k for k in get_all_convs_and_linears(model)]
+
 
 activation_cache = collect_activation_cache(model, train_dl, keys=layer_keys)
 
@@ -127,11 +84,7 @@ base_dir.mkdir(parents=True, exist_ok=True)
 
 results = []
 
-for k in (
-    ratios_comp
-    if args.mode == "flops_auto" or args.mode == "params_auto"
-    else ratios_energy
-):
+for k in get_values_for_model_and_mode(args.model_name, args.mode):
     if args.mode == "flops_auto" or args.mode == "params_auto":
         model_lr = to_low_rank_activation_aware_auto(
             model,
