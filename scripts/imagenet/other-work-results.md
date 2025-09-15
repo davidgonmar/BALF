@@ -150,3 +150,12 @@ Transformed data: FLOPs delta and acc delta
 |---------------|----------|------------|
 | 5%            | 67.46    | -4.42      |
 | 10%           | 53.41    | -18.47     |
+
+
+# Dense Vision Transformer Compression with Few Samples
+
+| Model  | Method     | FLOPs Decrease | Top-1 Acc (%) | Δ Top-1 | Top-5 Acc (%) | Δ Top-5 |
+|--------|------------|----------------|---------------|---------|---------------|---------|
+| DeiT-B | Original   | -              | 81.8          | -       | 95.5          | -       |
+| DeiT-B | PRACTISE (impl by DC-DeiT-B)  | 16.6%        | 79.3          | -2.5    | 94.31         | -1.19   |
+| DeiT-B | DC-DeiT-B  | 16.6%        | 81.26         | -0.54   | 95.35         | -0.15   |

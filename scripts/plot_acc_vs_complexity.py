@@ -11,15 +11,15 @@ FIGSIZE = (3.5, 2.5)  # inches (width, height)
 DPI = 300
 plt.rcParams.update(
     {
-        "font.size": 8,
-        "axes.titlesize": 9,
-        "axes.labelsize": 8,
-        "legend.fontsize": 6,  # smaller legend text
-        "legend.title_fontsize": 6,  # smaller legend title
-        "xtick.labelsize": 7,
-        "ytick.labelsize": 7,
+        "font.size": 9,
+        "axes.titlesize": 10,
+        "axes.labelsize": 10,
+        "legend.fontsize": 7,  # larger legend text
+        "legend.title_fontsize": 6,  # larger legend title
+        "xtick.labelsize": 9,
+        "ytick.labelsize": 9,
         "lines.linewidth": 1.0,
-        "lines.markersize": 2,  # smaller markers
+        "lines.markersize": 2,
         "figure.dpi": DPI,
     }
 )
@@ -145,7 +145,7 @@ if __name__ == "__main__":
         if key == "energy":
             return "energy"
         if key == "energy_aa":
-            return "energy_aa"  # <-- fixed: underscore, not hyphen
+            return "energy_aa"  # underscore, not hyphen
         return "auto"
 
     # Create axes: bottom (FLOPs), top (Params)
@@ -198,9 +198,7 @@ if __name__ == "__main__":
             print(f"Skipping '{key}' on Params axis: no data.")
 
     if not plotted_any:
-        print("No data available to plot. Exiting without saving.")
-        plt.close(fig)
-        raise SystemExit(0)
+        raise RuntimeError("No data to plot. Exiting.")
 
     # Independent x-lims for each axis (with padding to avoid singular transforms)
     if flops_x_all:
@@ -222,21 +220,32 @@ if __name__ == "__main__":
     pretty = model_name_to_pretty_name.get(args.model_name, args.model_name)
     ax.set_title(f"{pretty} Accuracy vs FLOPs/Params")
 
-    # --------- Two legends in the TOP-LEFT ----------
-    # Legend A: line styles (axis semantics)
+    # --------- Two legends: TOP-LEFT (line styles) & BOTTOM-RIGHT (methods) ----------
+
+    # Legend A: line styles (axis semantics) — TOP LEFT
     linestyle_handles = [
         Line2D([0], [0], linestyle="-", color="k", label="Params (solid)"),
         Line2D([0], [0], linestyle="--", color="k", label="FLOPs (dashed)"),
     ]
-    legend_styles = ax.legend(
-        handles=linestyle_handles,
-        loc="upper left",  # top-left corner
-        frameon=False,
-        title=None,
-    )
-    ax.add_artist(legend_styles)
+    # ResNeXt-101 has curves to the left, so move legend to right
+    # ResNeXt-101 has curves to the left, so move legend to right
+    if args.model_name == "resnext101_32x8d":
+        legend_styles = ax.legend(
+            handles=linestyle_handles,
+            loc="center right",  # centered to the right of the axes
+            frameon=False,
+            title=None,
+        )
+    else:
+        legend_styles = ax.legend(
+            handles=linestyle_handles,
+            loc="upper left",
+            frameon=False,
+            title=None,
+        )
+    ax.add_artist(legend_styles)  # keep this one when adding another legend
 
-    # Legend B: colors (method semantics)
+    # Legend B: colors (method semantics) — BOTTOM RIGHT
     method_handles = [
         Line2D([0], [0], linestyle="-", color=method_color["auto"], label="auto"),
         Line2D([0], [0], linestyle="-", color=method_color["energy"], label="energy"),
@@ -244,16 +253,23 @@ if __name__ == "__main__":
             [0], [0], linestyle="-", color=method_color["energy_aa"], label="energy-aa"
         ),
     ]
-    ax.legend(
-        handles=method_handles,
-        loc="upper left",
-        bbox_to_anchor=(0, 0.80),  # a bit below the first legend
-        frameon=False,
-        ncol=1,
-        title="Method (color)",
-    )
 
-    plt.tight_layout(pad=0.2)
+    if not args.model_name == "mobilenet_v2":
+        ax.legend(
+            handles=method_handles,
+            loc="lower right",  # bottom-right inside the axes
+            frameon=False,
+            ncol=1,
+        )
+    else:  # mobilenet_v2 has curves to the right
+        ax.legend(
+            handles=method_handles,
+            loc="lower left",  # centered below the axes
+            frameon=False,
+            ncol=1,
+        )
+
+    plt.tight_layout(pad=0.3)
     out_file = os.path.join(
         args.output_dir, f"{args.model_name}_acc_vs_flops_params.pdf"
     )

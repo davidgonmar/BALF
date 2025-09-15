@@ -24,7 +24,7 @@ python "${PLOT_SCRIPT}" \
 
 echo "=== Plotting MobileNetV2 (single figure) ==="
 python "${PLOT_SCRIPT}" \
-  --model_name mobilenetv2 \
+  --model_name mobilenet_v2 \
   --flops_json "${ROOT_DIR}/results/imagenet/mobilenet_v2/factorized_posttrain/flops_auto/results.json" \
   --params_json "${ROOT_DIR}/results/imagenet/mobilenet_v2/factorized_posttrain/params_auto/results.json" \
   --energy_json "${ROOT_DIR}/results/imagenet/mobilenet_v2/factorized_posttrain/energy/results.json" \
