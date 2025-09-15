@@ -98,10 +98,14 @@ model_dict = {
 
 model = model_dict[args.model_name]().to(device)
 
-
+interp_mode = (
+    transforms.InterpolationMode.BICUBIC
+    if args.model_name in ["vit_b_16", "deit_b_16"]
+    else transforms.InterpolationMode.BILINEAR
+)
 eval_tf = transforms.Compose(
     [
-        transforms.Resize(256),
+        transforms.Resize(256, interpolation=interp_mode),
         transforms.CenterCrop(224),
         transforms.ToTensor(),
         transforms.Normalize(mean=imagenet_mean, std=imagenet_std),
@@ -109,7 +113,7 @@ eval_tf = transforms.Compose(
 )
 train_tf = transforms.Compose(
     [
-        transforms.Resize(256),
+        transforms.Resize(256, interpolation=interp_mode),
         transforms.CenterCrop(224),
         transforms.ToTensor(),
         transforms.Normalize(mean=imagenet_mean, std=imagenet_std),

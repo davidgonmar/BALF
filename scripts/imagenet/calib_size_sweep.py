@@ -24,6 +24,8 @@ from lib.utils import (
 from lib.factorization.factorize import (
     to_low_rank_activation_aware_auto,
 )
+import functools
+import timm
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument(
@@ -37,6 +39,7 @@ parser.add_argument(
         "resnext50_32x4d",
         "resnext101_32x8d",
         "vit_b_16",
+        "deit_b_16",
     ],
 )
 parser.add_argument("--results_dir", required=True)
@@ -60,22 +63,51 @@ args = parser.parse_args()
 seed_everything(args.seed)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
 model_dict = {
-    "resnet18": models.resnet18,
-    "resnet34": models.resnet34,
-    "resnet50": models.resnet50,
-    "mobilenet_v2": models.mobilenet_v2,
-    "resnext50_32x4d": models.resnext50_32x4d,
-    "resnext101_32x8d": models.resnext101_32x8d,
-    "vit_b_16": models.vit_b_16,
+    "resnet18": functools.partial(
+        models.resnet18, weights=models.ResNet18_Weights.IMAGENET1K_V1
+    ),
+    "resnet50": functools.partial(
+        models.resnet50, weights=models.ResNet50_Weights.IMAGENET1K_V1
+    ),
+    "mobilenet_v2": functools.partial(
+        models.mobilenet_v2, weights=models.MobileNet_V2_Weights.IMAGENET1K_V1
+    ),
+    "resnext50_32x4d": functools.partial(
+        models.resnext50_32x4d, weights=models.ResNeXt50_32X4D_Weights.IMAGENET1K_V1
+    ),
+    "resnext101_32x8d": functools.partial(
+        models.resnext101_32x8d, weights=models.ResNeXt101_32X8D_Weights.IMAGENET1K_V1
+    ),
+    "vit_b_16": functools.partial(
+        timm.create_model,
+        model_name="vit_base_patch16_224",
+        num_classes=1000,
+        pretrained=True,
+    ),
+    "deit_b_16": functools.partial(
+        timm.create_model,
+        model_name="deit_base_patch16_224",
+        num_classes=1000,
+        pretrained=True,
+    ),
 }
-model = model_dict[args.model_name](pretrained=True).to(device)
+model = model_dict[args.model_name]().to(device)
 model.eval()
 
-
+interp_mode = (
+    transforms.InterpolationMode.BILINEAR
+    if args.model_name
+    not in [
+        "vit_b_16",
+        "deit_b_16",
+    ]
+    else transforms.InterpolationMode.BICUBIC
+)
 eval_tf = transforms.Compose(
     [
-        transforms.Resize(256),
+        transforms.Resize(256, interpolation=interp_mode),
         transforms.CenterCrop(224),
         transforms.ToTensor(),
         transforms.Normalize(mean=imagenet_mean, std=imagenet_std),
@@ -98,7 +130,6 @@ else:
 eval_dl = DataLoader(
     eval_ds,
     batch_size=args.batch_size_eval,
-    shuffle=False,
     num_workers=8,
     pin_memory=True,
 )
