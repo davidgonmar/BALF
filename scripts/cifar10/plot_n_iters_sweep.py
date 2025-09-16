@@ -1,13 +1,12 @@
-"""
-This script reads a JSON summary file containing results of various models
-and generates plots showing the relationship between the number of iterations (k)
-and both FLOPs ratio and accuracy.
-"""
-
 import argparse
 import json
 from pathlib import Path
 import matplotlib.pyplot as plt
+
+NAME_MAP = {
+    "resnet20": "ResNet-20",
+    "resnet56": "ResNet-56",
+}
 
 
 def extract_series(results_list):
@@ -36,8 +35,8 @@ def main():
     p.add_argument("--summary", required=True)
     p.add_argument("--out_usage", default="k_vs_flops_ratio.pdf")
     p.add_argument("--out_accuracy", default="k_vs_accuracy.pdf")
-    p.add_argument("--title_usage", default="k vs FLOPs Ratio")
-    p.add_argument("--title_accuracy", default="k vs Accuracy")
+    p.add_argument("--title_usage", default=None)
+    p.add_argument("--title_accuracy", default=None)
     p.add_argument("--models", nargs="*")
     args = p.parse_args()
 
@@ -51,7 +50,8 @@ def main():
     for model, lst in data.items():
         ks, flops, acc = extract_series(lst)
         if ks:
-            series[model] = (ks, flops, acc)
+            pretty = NAME_MAP.get(model, model)
+            series[pretty] = (ks, flops, acc)
 
     if not series:
         raise SystemExit("no data")
@@ -60,8 +60,8 @@ def main():
     for model, (ks, flops, _) in sorted(series.items()):
         plt.plot(ks, flops, marker="o", linewidth=1.5, label=model)
     plt.title(args.title_usage)
-    plt.xlabel("k (n_iters)")
-    plt.ylabel("FLOPs ratio")
+    plt.xlabel("Number of iterations")
+    plt.ylabel("Resulting FLOPs ratio")
     plt.grid(True, linestyle=":", linewidth=0.8)
     plt.legend()
     out1 = Path(args.out_usage)
@@ -73,7 +73,7 @@ def main():
     for model, (ks, _, acc) in sorted(series.items()):
         plt.plot(ks, acc, marker="o", linewidth=1.5, label=model)
     plt.title(args.title_accuracy)
-    plt.xlabel("k (n_iters)")
+    plt.xlabel("Number of iterations")
     plt.ylabel("Accuracy")
     plt.grid(True, linestyle=":", linewidth=0.8)
     plt.legend()

@@ -18,7 +18,7 @@ import time
 
 
 def maximize_energy(
-    cum_energy_vectors, cumulative_cost_vectors, total_cost, n_iters=50
+    cum_energy_vectors, cumulative_cost_vectors, total_cost, n_iters=300
 ):
     """
     Multiple-choice knapsack via Lagrangian relaxation.
@@ -463,7 +463,8 @@ def to_low_rank_activation_aware_auto(
     inplace: bool = True,
     *,
     save_dir: Union[str, Path],
-    n_iters: int = 50,
+    n_iters: int = 300,
+    benchmark: bool = False,
 ):
     if not 0 < ratio_to_keep <= 1:
         raise ValueError("ratio_to_keep must be in (0, 1].")
@@ -498,6 +499,13 @@ def to_low_rank_activation_aware_auto(
     def _load_fac(name: str):
         return torch.load(_fname_fac(name), map_location="cuda", weights_only=True)
 
+    # reset max memory stats
+    if benchmark:
+        torch.cuda.reset_peak_memory_stats()
+
+    benchmark_results = {}
+
+    time_start_cache = time.perf_counter()
     if isinstance(data_or_cache, dict) and {"acts", "outs"} <= set(
         data_or_cache.keys()
     ):
@@ -505,12 +513,18 @@ def to_low_rank_activation_aware_auto(
     else:
         cache = collect_activation_cache(model, data_or_cache, keys)
 
+    torch.cuda.synchronize()
+    time_end_cache = time.perf_counter()
+    benchmark_results["time_activation_cache"] = time_end_cache - time_start_cache
+
     acts, outs = cache["acts"], cache["outs"]
     modules_to_replace = gather_submodules(
         model, should_do=keys_passlist_should_do(keys)
     )
 
     cum_energies, ws, out_shapes = [], [], []
+
+    time_start_factorization_and_whitening = time.perf_counter()
 
     for name, module in modules_to_replace:
         if save_dir is not None and _fname_whit(name).exists():
@@ -536,6 +550,12 @@ def to_low_rank_activation_aware_auto(
         out_shapes.append(outs[name])
 
         torch.cuda.empty_cache()
+
+    torch.cuda.synchronize()
+    time_end_factorization_and_whitening = time.perf_counter()
+    benchmark_results["time_factorization_and_whitening"] = (
+        time_end_factorization_and_whitening - time_start_factorization_and_whitening
+    )
 
     if metric == "rank":
         costs = [
@@ -572,12 +592,15 @@ def to_low_rank_activation_aware_auto(
         list(zip([len(c) for c in costs], [len(e) for e in cum_energies]))
     )
 
-    t0 = time.time()
+    time_start_solver = time.perf_counter()
+
     selected_indices = maximize_energy(
         cum_energies, costs, total_budget, n_iters=n_iters
     )
-    t1 = time.time()
-    print(f"Maximization took {t1 - t0:.2f} seconds.")
+
+    time_end_solver = time.perf_counter()
+
+    benchmark_results["time_solver"] = time_end_solver - time_start_solver
 
     selected_per_mod = {n: s for (n, _), s in zip(modules_to_replace, selected_indices)}
 
@@ -602,6 +625,19 @@ def to_low_rank_activation_aware_auto(
     del modules_to_replace
     del ws
     replace_with_factory(model, di, factory_fn)
+
+    torch.cuda.synchronize()
+    time_end_total = time.perf_counter()
+    benchmark_results["time_total"] = time_end_total - time_start_cache
+    benchmark_results["peak_cuda_memory_bytes"] = torch.cuda.max_memory_allocated()
+    if benchmark:
+        print("Benchmark results:")
+        for k, v in benchmark_results.items():
+            if "memory" in k:
+                print(f"  {k}: {v / (1024**2):.2f} MiB")
+            else:
+                print(f"  {k}: {v:.3f} seconds")
+        return model, benchmark_results
     return model
 
 

@@ -53,7 +53,7 @@ def parse_args():
     parser.add_argument(
         "--iters_max",
         type=int,
-        default=49,
+        default=50,
         help="Max n_iters to try (inclusive 0..iters_max).",
     )
     parser.add_argument("--calib_size", type=int, default=1024)
@@ -94,7 +94,7 @@ def main():
 
     global_results = {}
 
-    n_iters_try = list(range(args.iters_max + 1))
+    n_iters_try = list(range(1, args.iters_max + 1))
 
     for model_name, ckpt in zip(args.models, args.pretrained_paths):
         model = load_model(model_name, ckpt).to(device)
@@ -115,7 +115,7 @@ def main():
 
         results = []
 
-        for k in [50, 60, 70, 80, 90, 100, 120, 150, 200, 300, 400, 500]:
+        for k in n_iters_try:
             model_lr = to_low_rank_activation_aware_auto(
                 model,
                 activation_cache,  # cached activations

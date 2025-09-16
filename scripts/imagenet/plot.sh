@@ -22,6 +22,17 @@ python "${PLOT_SCRIPT}" \
   --energy_act_aware_json "${ROOT_DIR}/results/imagenet/resnet18/factorized_posttrain/energy_act_aware/results.json" \
   --output_dir "${OUTPUT_DIR}"
 
+# resnet50
+echo "=== Plotting ResNet50 (single figure) ==="
+python "${PLOT_SCRIPT}" \
+  --model_name resnet50 \
+  --flops_json "${ROOT_DIR}/results/imagenet/resnet50/factorized_posttrain/flops_auto/results.json" \
+  --params_json "${ROOT_DIR}/results/imagenet/resnet50/factorized_posttrain/params_auto/results.json" \
+  --energy_json "${ROOT_DIR}/results/imagenet/resnet50/factorized_posttrain/energy/results.json" \
+  --energy_act_aware_json "${ROOT_DIR}/results/imagenet/resnet50/factorized_posttrain/energy_act_aware/results.json" \
+  --output_dir "${OUTPUT_DIR}"
+
+
 echo "=== Plotting MobileNetV2 (single figure) ==="
 python "${PLOT_SCRIPT}" \
   --model_name mobilenet_v2 \

@@ -116,7 +116,6 @@ def plot_lines_with_gap_bars(df, mode, x_key, out_pdf):
     ax.grid(True, alpha=0.3)
     ax.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=2)
 
-    plt.title(f"{mode}: Clean vs CIFAR-10-C (gap shown)")
     out_pdf.parent.mkdir(parents=True, exist_ok=True)
     plt.tight_layout()
     plt.savefig(out_pdf, format="pdf", bbox_inches="tight")
