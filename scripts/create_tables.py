@@ -1,4 +1,10 @@
-#!/usr/bin/env python3
+"""
+This script is used to render tables in LaTeX format with the results of our method
+given the outputs of different sweep runs (see ./cifar10/factorize_sweep.py and
+./imagenet/factorize_sweep.py). It will be called individually from there, but this
+Python script is shared between the two.
+"""
+
 import argparse
 import json
 import os
@@ -108,7 +114,7 @@ def main():
             fa_base_a,
             args.decimals,
         )
-        lines.append(f"FA-{r:g} & {fa_f} & {fa_p} & {fa_a} \\\\")
+        lines.append(f"BALF-F-{r:g} & {fa_f} & {fa_p} & {fa_a} \\\\")
 
         # params-auto
         pa_row = nearest_row(params_auto, "params_ratio", r)
@@ -127,10 +133,7 @@ def main():
             pa_base_a,
             args.decimals,
         )
-        lines.append(f"PA-{r:g} & {pa_f} & {pa_p} & {pa_a} \\\\")
-
-        if idx != len(ratios) - 1:
-            lines.append(r"\midrule")
+        lines.append(f"BALF-P-{r:g} & {pa_f} & {pa_p} & {pa_a} \\\\")
 
     print("\n".join(lines))
 

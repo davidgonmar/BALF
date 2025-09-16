@@ -36,12 +36,12 @@ from matplotlib.lines import Line2D
 plt.rcParams.update(
     {
         "font.size": 14,  # default text size
-        "axes.titlesize": 16,  # axes title
-        "axes.labelsize": 16,  # x and y labels
-        "xtick.labelsize": 12,  # x tick labels
-        "ytick.labelsize": 12,  # y tick labels
-        "legend.fontsize": 12,  # legend
-        "legend.title_fontsize": 13,
+        "axes.titlesize": 18,  # axes title
+        "axes.labelsize": 18,  # x and y labels
+        "xtick.labelsize": 16,  # x tick labels
+        "ytick.labelsize": 16,  # y tick labels
+        "legend.fontsize": 14,  # legend
+        "legend.title_fontsize": 15,
     }
 )
 
@@ -370,7 +370,7 @@ def main():
         handles=color_handles,
         title="Layer",
         loc="upper right",
-        bbox_to_anchor=(1.0, 0.8),  # shift downward inside axes
+        bbox_to_anchor=(1.0, 0.75),  # shift downward inside axes
         frameon=False,
     )
 

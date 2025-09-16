@@ -92,7 +92,7 @@ def main():
     base_dir = Path(args.results_dir)
     base_dir.mkdir(parents=True, exist_ok=True)
 
-    global_summary = []
+    global_results = {}
 
     n_iters_try = list(range(args.iters_max + 1))
 
@@ -115,7 +115,7 @@ def main():
 
         results = []
 
-        for k in n_iters_try:
+        for k in [50, 60, 70, 80, 90, 100, 120, 150, 200, 300, 400, 500]:
             model_lr = to_low_rank_activation_aware_auto(
                 model,
                 activation_cache,  # cached activations
@@ -125,14 +125,13 @@ def main():
                 metric="flops",
                 n_iters=k,
                 save_dir=make_factorization_cache_location(
-                    args.model_name,
+                    model_name,
                     args.calib_size,
                     "cifar10",
-                    "n_iters_closeness",
+                    "n_iters_sweep",
                     args.seed,
                 ),
             )
-
             params_lr = sum(p.numel() for p in model_lr.parameters())
             flops_raw_lr = count_model_flops(model_lr, (1, 3, 32, 32))
             eval_lr = evaluate_vision_model(model_lr, eval_dl)
@@ -145,7 +144,6 @@ def main():
                 f"acc={eval_lr['accuracy']:.4f} "
                 f"params_ratio={params_ratio:.4f} flops_ratio={flops_ratio:.4f}"
             )
-            print(f"delta params_ratio: {abs(params_ratio - args.ratio_to_keep)}")
             print(f"delta flops_ratio: {abs(flops_ratio - args.ratio_to_keep)}")
 
             results.append(
@@ -158,7 +156,6 @@ def main():
                     "flops_ratio": float(flops_ratio),
                     "try_n_iters": k,
                     "delta_flops_ratio": float(abs(flops_ratio - args.ratio_to_keep)),
-                    "delta_params_ratio": float(abs(params_ratio - args.ratio_to_keep)),
                     "baseline_loss": float(baseline_metrics["loss"]),
                     "baseline_accuracy": float(baseline_metrics["accuracy"]),
                     "params_orig": int(params_orig),
@@ -167,9 +164,11 @@ def main():
                 }
             )
 
+        global_results[model_name] = results
+
     # Top-level summary
     with open(base_dir / "summary.json", "w") as f:
-        json.dump(global_summary, f, indent=2)
+        json.dump(global_results, f, indent=2)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,10 @@
-#!/usr/bin/env python3
+"""
+This script is used to render plots in PDF format with the results of our method
+given the outputs of different sweep runs (see ./cifar10/factorize_sweep.py and
+./imagenet/factorize_sweep.py). It will be called individually from there, but this
+Python script is shared between the two.
+"""
+
 import json
 import argparse
 import os
@@ -238,7 +244,7 @@ if __name__ == "__main__":
 
     # Legend B: colors (methods)
     method_handles = [
-        Line2D([0], [0], linestyle="-", color=method_color["auto"], label="auto"),
+        Line2D([0], [0], linestyle="-", color=method_color["auto"], label="BALF"),
         Line2D([0], [0], linestyle="-", color=method_color["energy"], label="energy"),
         Line2D(
             [0], [0], linestyle="-", color=method_color["energy_aa"], label="energy-aa"

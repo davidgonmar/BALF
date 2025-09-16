@@ -1,4 +1,10 @@
-#!/usr/bin/env python3
+"""
+This script is used to render plots in PDF format with the results of our method
+given the outputs of different calibration sizes (see ./cifar10/calib_size_sweep.py and
+./imagenet/calib_size_sweep.py). It will be called individually from there, but this
+Python script is shared between the two.
+"""
+
 import argparse
 import json
 from pathlib import Path
