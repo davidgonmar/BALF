@@ -123,7 +123,6 @@ if __name__ == "__main__":
         "energy_aa": load_results(args.energy_act_aware_json),
     }
 
-    # Method → color mapping (consistent across both axes)
     method_color = {
         "auto": "C0",
         "energy": "C1",
@@ -145,17 +144,15 @@ if __name__ == "__main__":
         if key == "energy":
             return "energy"
         if key == "energy_aa":
-            return "energy_aa"  # underscore, not hyphen
+            return "energy_aa"
         return "auto"
 
-    # Create axes: bottom (FLOPs), top (Params)
     fig, ax = plt.subplots(figsize=FIGSIZE)
     ax_top = ax.twiny()
 
     plotted_any = False
     flops_x_all, params_x_all = [], []
 
-    # --- FLOPs axis: ONLY flops_auto + energy + act-aware (dashed) ---
     for key in ["flops_auto", "energy", "energy_aa"]:
         results = data.get(key)
         if results:
@@ -176,7 +173,6 @@ if __name__ == "__main__":
         else:
             print(f"Skipping '{key}' on FLOPs axis: no data.")
 
-    # --- Params axis: ONLY params_auto + energy + act-aware (solid) ---
     for key in ["params_auto", "energy", "energy_aa"]:
         results = data.get(key)
         if results:
@@ -200,34 +196,29 @@ if __name__ == "__main__":
     if not plotted_any:
         raise RuntimeError("No data to plot. Exiting.")
 
-    # Independent x-lims for each axis (with padding to avoid singular transforms)
     if flops_x_all:
         ax.set_xlim(*_pad_limits(min(flops_x_all), max(flops_x_all)))
     if params_x_all:
         ax_top.set_xlim(*_pad_limits(min(params_x_all), max(params_x_all)))
 
-    # Clean aesthetics
     for spine in ["top", "right"]:
         ax.spines[spine].set_visible(False)
     ax_top.spines["right"].set_visible(False)
     ax.grid(axis="y", linestyle="--", linewidth=0.5)
     ax.yaxis.set_major_locator(MultipleLocator(0.1))
 
-    # Labels and title
     ax.set_xlabel("FLOPs Ratio")
     ax_top.set_xlabel("Params Ratio")
     ax.set_ylabel("Accuracy")
     pretty = model_name_to_pretty_name.get(args.model_name, args.model_name)
-    ax.set_title(f"{pretty} Accuracy vs FLOPs/Params")
+    ax.set_title(f"{pretty}")
 
-    # --------- Two legends: TOP-LEFT (line styles) & BOTTOM-RIGHT (methods) ----------
-
-    # Legend A: line styles (axis semantics) — TOP LEFT
+    # Legend A: line styles (axis semantics)
     linestyle_handles = [
         Line2D([0], [0], linestyle="-", color="k", label="Params (solid)"),
         Line2D([0], [0], linestyle="--", color="k", label="FLOPs (dashed)"),
     ]
-    # ResNeXt-101 has curves to the left, so move legend to right
+
     # ResNeXt-101 has curves to the left, so move legend to right
     if args.model_name == "resnext101_32x8d":
         legend_styles = ax.legend(
@@ -243,9 +234,9 @@ if __name__ == "__main__":
             frameon=False,
             title=None,
         )
-    ax.add_artist(legend_styles)  # keep this one when adding another legend
+    ax.add_artist(legend_styles)
 
-    # Legend B: colors (method semantics) — BOTTOM RIGHT
+    # Legend B: colors (methods)
     method_handles = [
         Line2D([0], [0], linestyle="-", color=method_color["auto"], label="auto"),
         Line2D([0], [0], linestyle="-", color=method_color["energy"], label="energy"),
@@ -257,14 +248,14 @@ if __name__ == "__main__":
     if not args.model_name == "mobilenet_v2":
         ax.legend(
             handles=method_handles,
-            loc="lower right",  # bottom-right inside the axes
+            loc="lower right",
             frameon=False,
             ncol=1,
         )
     else:  # mobilenet_v2 has curves to the right
         ax.legend(
             handles=method_handles,
-            loc="lower left",  # centered below the axes
+            loc="lower left",
             frameon=False,
             ncol=1,
         )
