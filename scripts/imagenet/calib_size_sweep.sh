@@ -36,11 +36,13 @@ COMMENT
 echo "=== Plotting ResNet18 Calib Size Sweep (single figure) ==="
 python "${SCRIPT_DIR}/../plot_calib_size_sweep.py" \
   --results_dir "${ROOT_DIR}/results/imagenet/calib_size_sweep_resnet18_params" \
+  --model_name resnet18 \
   --out "${OUTPUT_DIR}/calib_size_sweep_resnet18_params.pdf" \
 
 
 echo "=== Plotting ResNet50 Calib Size Sweep (single figure) ==="
 python "${SCRIPT_DIR}/../plot_calib_size_sweep.py" \
   --results_dir "${ROOT_DIR}/results/imagenet/calib_size_sweep_resnet50_params" \
+  --model_name resnet50 \
   --out "${OUTPUT_DIR}/calib_size_sweep_resnet50_params.pdf" \
   

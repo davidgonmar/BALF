@@ -266,10 +266,10 @@ if __name__ == "__main__":
             ncol=1,
         )
 
-    plt.tight_layout(pad=0.3)
+    plt.tight_layout(pad=0.0)
     out_file = os.path.join(
         args.output_dir, f"{args.model_name}_acc_vs_flops_params.pdf"
     )
-    fig.savefig(out_file)
+    fig.savefig(out_file, bbox_inches="tight", pad_inches=0.01)  # 1px padding approx
     plt.close(fig)
     print(f"Saved {out_file}")

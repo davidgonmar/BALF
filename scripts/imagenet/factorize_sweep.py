@@ -50,7 +50,7 @@ parser.add_argument("--train_dir", required=True)
 parser.add_argument("--val_dir", required=True)
 parser.add_argument("--batch_size_eval", type=int, default=256)
 parser.add_argument("--batch_size_cache", type=int, default=128)
-parser.add_argument("--calib_size", type=int, default=4096)
+parser.add_argument("--calib_size", type=int, default=8192)
 parser.add_argument("--save_compressed_models", action="store_true")
 parser.add_argument(
     "--eval_subset_size",

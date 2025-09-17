@@ -136,7 +136,7 @@ def main():
     ap.add_argument("--results_dir", required=True)
     ap.add_argument("--train_dir", required=True)
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--calib_size", type=int, default=4096)
+    ap.add_argument("--calib_size", type=int, default=8192)
     ap.add_argument("--batch_size_cache", type=int, default=128)
     ap.add_argument("--batch_sizes", type=int, nargs="+", default=[8, 16, 32])
     ap.add_argument("--iters", type=int, default=10)

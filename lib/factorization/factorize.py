@@ -624,11 +624,12 @@ def to_low_rank_activation_aware_auto(
     di = {name: module for name, module in modules_to_replace}
     del modules_to_replace
     del ws
+    time_start_replace = time.perf_counter()
     replace_with_factory(model, di, factory_fn)
-
     torch.cuda.synchronize()
-    time_end_total = time.perf_counter()
-    benchmark_results["time_total"] = time_end_total - time_start_cache
+    time_end_replace = time.perf_counter()
+    benchmark_results["time_replace"] = time_end_replace - time_start_replace
+    benchmark_results["time_total"] = time_end_replace - time_start_cache
     benchmark_results["peak_cuda_memory_bytes"] = torch.cuda.max_memory_allocated()
     if benchmark:
         print("Benchmark results:")

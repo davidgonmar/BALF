@@ -15,8 +15,8 @@ PRETTY = {
     "resnet18": "ResNet-18",
     "resnet50": "ResNet-50",
     "mobilenet_v2": "MobileNetV2",
-    "resnext50_32x4d": "ResNeXt-50 (32×4d)",
-    "resnext101_32x8d": "ResNeXt-101 (32×8d)",
+    "resnext50_32x4d": r"ResNeXt-50 (32$\times$4d)",
+    "resnext101_32x8d": r"ResNeXt-101 (32$\times$8d)",
     "vit_b_16": "ViT-B/16",
     "deit_b_16": "DeiT-B/16",
 }
@@ -42,29 +42,29 @@ rows_by_name = {r["model"]: r for r in rows if "model" in r}
 ordered = [rows_by_name[n] for n in SUPPORTED if n in rows_by_name]
 
 lines = []
-lines.append(r"\begin{table}[t]")
-lines.append(r"\centering")
-lines.append(r"\begin{tabular}{lrrrrr}")
+lines.append(r"\small")  # compress font size
+lines.append(r"\begin{tabular}{lrrrrrrr}")
 lines.append(r"\hline")
 lines.append(
-    r"Model & Cache (s) & Fact+Whit (s) & Solver (s) & Total (s) & PeakMem (GiB) \\"
+    r"Model & Cache & Replace & Fact.+Whit. & Solver & Misc & Total & Peak Mem. \\"
 )
 lines.append(r"\hline")
 
 for r in ordered:
     m = PRETTY.get(r["model"], r["model"])
     cache = float(r.get("time_activation_cache", float("nan")))
+    rep = float(r.get("time_replace", float("nan")))
     fac = float(r.get("time_factorization_and_whitening", float("nan")))
     sol = float(r.get("time_solver", float("nan")))
     tot = float(r.get("time_total", float("nan")))
     mem = float(r.get("peak_cuda_memory_bytes", 0.0)) / (1024**3)
+    misc = tot - (cache + rep + fac + sol)
     lines.append(
-        f"{m} & {cache:.3f} & {fac:.3f} & {sol:.3f} & {tot:.3f} & {mem:.2f} \\\\"
+        f"{m} & {cache:.3f} & {rep:.3f} & {fac:.3f} & {sol:.3f} & {misc:.3f} & {tot:.3f} & {mem:.2f} \\\\"
     )
 
 lines.append(r"\hline")
 lines.append(r"\end{tabular}")
-lines.append(r"\end{table}")
 
 Path(args.out_tex).parent.mkdir(parents=True, exist_ok=True)
 with open(args.out_tex, "w") as f:

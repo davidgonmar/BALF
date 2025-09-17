@@ -92,7 +92,7 @@ def main():
     p.add_argument("--train_dir", required=True)
     p.add_argument("--out", default="timings.json")
     p.add_argument("--batch_size", type=int, default=128)
-    p.add_argument("--calib_size", type=int, default=4096)
+    p.add_argument("--calib_size", type=int, default=8192)
     p.add_argument("--seed", type=int, default=0)
     args = p.parse_args()
 

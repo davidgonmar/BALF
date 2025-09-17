@@ -10,7 +10,7 @@ python "${SCRIPT_DIR}/measure_compression_time.py" \
   --train_dir "${ROOT_DIR}/imagenet-calib" \
   --out "${ROOT_DIR}/results/imagenet/timings/timings.json" \
   --seed 0 \
-  --batch_size 128 \
+  --batch_size 64 \
   --calib_size 512
 
 # =========================================================
