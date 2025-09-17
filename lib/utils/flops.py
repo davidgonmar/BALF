@@ -1,3 +1,9 @@
+"""
+This is a small helper to count model FLOPs based on https://dev-discuss.pytorch.org/t/the-ideal-pytorch-flop-counter-with-torch-dispatch/505.
+Note that, in general, the actual FLOPs would be the double of what we count here,
+but it is fine, as we use them for relative comparisons.
+"""
+
 import torch
 
 from torch.utils._pytree import tree_map
@@ -5,7 +11,6 @@ from typing import List, Any
 from numbers import Number
 from collections import defaultdict
 
-# based on https://dev-discuss.pytorch.org/t/the-ideal-pytorch-flop-counter-with-torch-dispatch/505
 
 aten = torch.ops.aten
 

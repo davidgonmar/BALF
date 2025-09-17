@@ -109,7 +109,7 @@ def main():
 
     pretty = MODEL_NAME_TO_PRETTY.get(args.model_name, args.model_name)
     if args.title:
-        plt.title(f"{pretty} — {args.title}")
+        plt.title(f"{pretty} - {args.title}")
     else:
         plt.title(pretty)
 

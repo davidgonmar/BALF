@@ -97,7 +97,7 @@ def maximize_energy(
 # cost(P) = min(cost_low_rank(P), cost_original)
 # Since if cost_low_rank(P) > cost_original, we would just keep the original layer
 
-# NOTE: these are actually MACs, but as they are used as ratios, we do not multiply by 2.
+# NOTE: these are actually MACs, but as they are used relatively, it does not matter
 
 
 def generate_cost_flops_linear(

@@ -46,21 +46,21 @@ lines.append(r"\small")  # compress font size
 lines.append(r"\begin{tabular}{lrrrrrrr}")
 lines.append(r"\hline")
 lines.append(
-    r"Model & Cache & Replace & Fact.+Whit. & Solver & Misc & Total & Peak Mem. \\"
+    r"Model & Act. & Fact.+Whit. & Solver & Replace  & Misc & Total & Peak Mem. \\"
 )
 lines.append(r"\hline")
 
 for r in ordered:
     m = PRETTY.get(r["model"], r["model"])
-    cache = float(r.get("time_activation_cache", float("nan")))
+    act = float(r.get("time_activation_cache", float("nan")))
     rep = float(r.get("time_replace", float("nan")))
     fac = float(r.get("time_factorization_and_whitening", float("nan")))
     sol = float(r.get("time_solver", float("nan")))
     tot = float(r.get("time_total", float("nan")))
     mem = float(r.get("peak_cuda_memory_bytes", 0.0)) / (1024**3)
-    misc = tot - (cache + rep + fac + sol)
+    misc = tot - (act + rep + fac + sol)
     lines.append(
-        f"{m} & {cache:.3f} & {rep:.3f} & {fac:.3f} & {sol:.3f} & {misc:.3f} & {tot:.3f} & {mem:.2f} \\\\"
+        f"{m} & {act:.3f} & {fac:.3f} & {sol:.3f} & {rep:.3f} & {misc:.3f} & {tot:.3f} & {mem:.2f} \\\\"
     )
 
 lines.append(r"\hline")
