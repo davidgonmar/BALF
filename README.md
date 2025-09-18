@@ -3,6 +3,7 @@
 This repository contains the code to reproduce the experiments for our paper.
 
 *Author: David González Martínez*
+
 *Paper: [arXiv (to appear)](https://arxiv.org/abs/XXXX.XXXXX)*
 
 The `./lib` directory contains the implementation of the generalized activation-aware factorization method, as well as the rank allocation strategy.
