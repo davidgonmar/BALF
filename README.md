@@ -1,4 +1,4 @@
-# Paper title (TBD)
+# BALF: Budgeted Activation-Aware Low-Rank Factorization for Fine-Tuning-Free Compression
 
 This repository contains the code to reproduce the experiments from the paper "paper title".
 
@@ -11,12 +11,16 @@ It includes both the methods to transform a model into its factorized counterpar
 ## Reproducing Experiments
 
 ### Installing Dependencies
-You can install the required packages using pip:
+
+Our experiment code was run on Python 3.10 and Python 3.11.
+
+The required packages and their versions can be installed with
 ```bash
 pip install -r requirements.txt
 ```
 
-### Preparing the Datasets
+
+### Preparing the Data
 
 The experiments need the CIFAR-10 dataset (train and eval), the CIFAR-10-C (eval) dataset, a subset of the ImageNet training set (to use as calibration data), and the ImageNet validation set (eval).
 
@@ -54,6 +58,8 @@ Results are printed to the console and also saved in a text file in `./results`.
 
 Most scripts usage can be identified from the name. They generally also include a header with a brief description of their purpose.
 
+### Other Works Data
+For comparison with other works, we either extracted the data from plots in the corresponding papers, or used data provided in tables. As we value transparency, we provide additional information in `./other-works-results.md`.
 
 ## License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details (TODO: add when ready).
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

@@ -23,10 +23,10 @@ def maximize_energy(
     """
     Multiple-choice knapsack via Lagrangian relaxation.
     Assumptions (as in the paper):
-      (i) Feasible instance exists.
-      (ii) All costs strictly positive.
-      (iii) Within each layer l, choices sorted by nondecreasing cost, so min(argmax) breaks ties by smallest cost.
-      (iv) Within each layer, energies are nondecreasing.
+      (1) Feasible instance exists.
+      (2) All costs strictly positive.
+      (3) Within each layer, choices sorted by nondecreasing cost, so min(argmax) breaks ties by smallest cost.
+      (4) Within each layer, energies are nondecreasing.
     Returns 1-based indices (one per layer, indicating the rank to keep).
     """
 
@@ -423,6 +423,7 @@ def collect_activation_cache(model: nn.Module, data, keys):
             a.transpose(-1, -2) @ a / length
         )  # we divide by length to avoid accumulation of very big numbers
         # but we actually need to divide by the total number of elements reduced in the inner dimension
+        # this will be done later
         acts[n] = acts[n].to("cpu").detach()
         outs.setdefault(n, out.shape)
         inner_dim_count[n] = inner_dim_count.get(n, 0) + a.shape[1]
@@ -732,24 +733,25 @@ def to_low_rank_activation_aware_manual(
     for name, module in modules_to_replace:
 
         if save_dir is not None and _fname_whit(name).exists():
-            whit = _load_whit(name)
+            whittuple = _load_whit(name)
         else:
-            whit = obtain_whitening_matrix(acts[name], module)
-            _save_whit(name, whit)
-        P, W = whit
+            whittuple = obtain_whitening_matrix(acts[name], module)
+            _save_whit(name, whittuple)
+
+        whit, whitinv = whittuple
 
         if save_dir is not None and _fname_fac(name).exists():
             U, S, V_T = _load_fac(name)
         else:
             reshaped = get_reshape(module)(module.weight.detach())
-            aa = W @ reshaped
+            aa = whitinv @ reshaped
             assert reshaped.device.type == "cuda"
             U, S, V_T = torch.linalg.svd(aa, full_matrices=False)
             _save_fac(name, (U.cpu(), S.cpu(), V_T.cpu()))
         torch.cuda.empty_cache()
 
     def factory_fn(name: str, module: nn.Module):
-        P, W = _load_whit(name)
+        whit, whitinv = _load_whit(name)
 
         U, S, V_T = _load_fac(name)
         fac = (U, S, V_T)
@@ -760,10 +762,15 @@ def to_low_rank_activation_aware_manual(
             return ret
 
         if is_linear(module):
-            return factorize_linear_whitened(module, selector, P, W, factors=fac)
+            return factorize_linear_whitened(
+                module, selector, whit, whitinv, factors=fac
+            )
         if is_conv2d(module):
-            return factorize_conv2d_whitened(module, selector, P, W, factors=fac)
-        return module  # fallback (should not happen)
+            return factorize_conv2d_whitened(
+                module, selector, whit, whitinv, factors=fac
+            )
+
+        return module
 
     di = {name: module for name, module in modules_to_replace}
     del modules_to_replace
