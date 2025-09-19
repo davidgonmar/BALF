@@ -5,8 +5,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 
-
-
 python "${SCRIPT_DIR}/n_iters_sweep.py" \
   --model resnet20 \
   --pretrained "${ROOT_DIR}/results/cifar10/resnet20/base/model.pth" \

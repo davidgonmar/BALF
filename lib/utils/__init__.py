@@ -8,9 +8,7 @@ import numpy as np
 from .general import (
     gather_submodules,
     keys_passlist_should_do,
-    unzip,
     get_all_convs_and_linears,
-    extract_weights,
     AverageMeter,
     seed_everything,
     replace_with_factory,
@@ -34,10 +32,8 @@ def evaluate_vision_model(
         model.eval()
     else:
         model.train()
-    import time
 
     device = next(model.parameters()).device
-    timer_start = time.time()
     loss_meter = AverageMeter()
     acc_meter = AverageMeter()
     criterion = torch.nn.CrossEntropyLoss()
@@ -54,10 +50,6 @@ def evaluate_vision_model(
         loss_meter.update(loss.item(), batch_size)
         acc_meter.update(accuracy, batch_size)
 
-    timer_end = time.time()
-    print(
-        f"Eval time: {timer_end - timer_start:.2f}s over {len(dataloader.dataset)} samples"
-    )
     model.train(prev_state)
     return {"accuracy": acc_meter.avg, "loss": loss_meter.avg}
 

@@ -5,7 +5,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 
-
 # First run the sweep on ResNet20
 python "${SCRIPT_DIR}/factorize_sweep.py" \
   --model_name resnet20 \

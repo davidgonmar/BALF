@@ -780,7 +780,7 @@ def to_low_rank_activation_aware_manual(
 
 
 def factorize_linear(module, get_rank: Callable, factors=None):
-    # again, linears are assumed not to be grouped
+    # again, linears are never grouped
     W = module.weight.T  # shape (in, out)
     if factors is None:
         U, S, V_T = decompose_params(W)

@@ -34,7 +34,7 @@ python "${SCRIPT_DIR}/../plot_calib_size_sweep.py" \
   --out "${OUTPUT_DIR}/calib_size_sweep_resnet20_params.pdf" \
 
 # Plot the results for ResNet56
-echo "=== Plotting ResNet56 Calib Size Sweep (single figure) ==="
+echo "=== Plotting ResNet56 Calib Size Sweep ==="
 python "${SCRIPT_DIR}/../plot_calib_size_sweep.py" \
   --results_dir "${ROOT_DIR}/results/cifar10/calib_size_sweep_resnet56_params" \
   --model_name resnet56 \

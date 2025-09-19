@@ -1,7 +1,7 @@
 """
 This script evaluates low-rank factorization of ResNet models on CIFAR-10.
 It sweeps over different compression ratios and records accuracy.
-Allows not only for our final proposed method, but for other baselines.
+It can use BALF (our proposed method) or other baselines.
 """
 
 import argparse

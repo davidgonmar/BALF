@@ -317,7 +317,7 @@ def main():
     plot_layer(rows_linear, layer_colors["Linear"], layer_markers["Linear"])
 
     plt.xlabel("Rank")
-    plt.ylabel("||ΔY||^2 / ||Y||^2")
+    plt.ylabel("$\|\Delta Y\|_F^2 / \|Y\|_F^2$")
     plt.grid(True, linestyle="--", alpha=0.3)
     plt.xlim(1, sweep_max_rank)
 

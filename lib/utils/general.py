@@ -1,43 +1,9 @@
-from typing import Callable, Dict, List
+from typing import Callable, Dict
 import functools as ft
 import torch
 from torch import nn
 import random
 import numpy as np
-
-
-def extract_weights(
-    model,
-    cls_list=None,
-    additional_check=lambda module: True,
-    keywords={"weight"},
-    ret_module=False,
-):
-    if isinstance(keywords, str):
-        keywords = {keywords}
-    weights = []
-    for name, module in model.named_modules():
-        if cls_list is None or isinstance(module, tuple(cls_list)):
-            if not additional_check(module):
-                continue
-            for keyword in keywords:
-                if hasattr(module, keyword):
-                    if not ret_module:
-                        weights.append(getattr(module, keyword))
-                    else:
-                        # name should include weight attr
-                        _name = name + "." + keyword
-                        weights.append(((_name, module), getattr(module, keyword)))
-    return weights
-
-
-def dims_sub(dims1: list[int], dims2: list[int]):
-    # dims in 1 but not in 2
-    return [dim for dim in dims1 if dim not in dims2]
-
-
-def unzip(lst: List[tuple]):
-    return tuple(list(map(lambda x: x[i], lst)) for i in range(len(lst[0])))
 
 
 def get_all_convs_and_linears(model):
@@ -46,10 +12,6 @@ def get_all_convs_and_linears(model):
         if isinstance(module, (torch.nn.Conv2d, torch.nn.Linear)):
             res.append(name)
     return res
-
-
-def default_should_do(module: nn.Module, full_name: str):
-    return True
 
 
 def gather_submodules(model: nn.Module, should_do: Callable) -> list:
@@ -62,19 +24,6 @@ def gather_submodules(model: nn.Module, should_do: Callable) -> list:
 
 def keys_passlist_should_do(keys):
     return ft.partial(lambda keys, module, full_name: full_name in keys, keys)
-
-
-def cls_passlist_should_do(cls_list):
-    return ft.partial(
-        lambda cls_list, module, full_name: isinstance(module, tuple(cls_list)),
-        cls_list,
-    )
-
-
-def combine_should_do(should_do1: Callable, should_do2: Callable) -> Callable:
-    return lambda module, full_name: should_do1(module, full_name) and should_do2(
-        module, full_name
-    )
 
 
 def replace_with_factory(
