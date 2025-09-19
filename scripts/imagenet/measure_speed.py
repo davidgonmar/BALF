@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import argparse
 import time
 import statistics
@@ -6,6 +5,7 @@ import functools
 from pathlib import Path
 
 import torch
+import torch.nn as nn
 from torch.utils.data import DataLoader, Subset
 from torchvision import datasets, transforms
 import torchvision.models as models
@@ -23,6 +23,16 @@ from lib.utils import (
     get_all_convs_and_linears,
 )
 from lib.factorization.factorize import to_low_rank_activation_aware_auto
+
+
+def replace_bn_with_identity(module):
+    for name, child in list(module.named_children()):
+        if isinstance(
+            child, (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d, nn.SyncBatchNorm)
+        ):
+            setattr(module, name, nn.Identity())
+        else:
+            replace_bn_with_identity(child)
 
 
 def build_model(model_name, device):
@@ -78,42 +88,68 @@ def build_calib_loader(model_name, train_dir, calib_size, seed):
     return ds
 
 
-def benchmark_latencies(model, batch_size, iters, warmup, device):
+PRETTY_MODEL_NAMES = {
+    "resnet18": "ResNet-18",
+    "resnet50": "ResNet-50",
+    "mobilenet_v2": "MobileNetV2",
+    "resnext50_32x4d": r"ResNeXt-50 (32$\times$4d)",
+    "resnext101_32x8d": r"ResNeXt-101 (32$\times$8d)",
+    "vit_b_16": "ViT-B/16",
+    "deit_b_16": "DeiT-B/16",
+}
+
+
+@torch.no_grad()
+def throughput_single_measure(model, batch_size, throughput_batches, warmup, device):
+    model.to(device).eval()
     torch.backends.cudnn.benchmark = True
-    torch.set_grad_enabled(False)
     x = torch.randn(batch_size, 3, 224, 224, device=device)
-
     for _ in range(warmup):
-        with torch.inference_mode():
-            _ = model(x)
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
-
-    times = []
-    for _ in range(iters):
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
-        t0 = time.perf_counter()
-        with torch.inference_mode():
-            _ = model(x)
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
-        times.append(time.perf_counter() - t0)
-    return times
+        _ = model(x)
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+    t0 = time.perf_counter()
+    for _ in range(throughput_batches):
+        _ = model(x)
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+    t1 = time.perf_counter()
+    items = throughput_batches * batch_size
+    return items / (t1 - t0)
 
 
-def plot_speedup_single_page(pdf, model_name, ratios, results_by_bs):
+def measure_throughput_repeats(
+    model, batch_sizes, throughput_batches, warmup, repeats, device
+):
+    out = {bs: [] for bs in batch_sizes}
+    for bs in batch_sizes:
+        for _ in range(repeats):
+            thpt = throughput_single_measure(
+                model, bs, throughput_batches, warmup, device
+            )
+            out[bs].append(float(thpt))
+    return out
+
+
+def mean_std(vals):
+    m = statistics.mean(vals)
+    s = statistics.stdev(vals) if len(vals) > 1 else 0.0
+    return float(m), float(s)
+
+
+def plot_throughput(pdf, model_name, ratios, results_by_bs):
     fig, ax = plt.subplots(figsize=(8.0, 5.0))
     for bs in results_by_bs:
-        means = [results_by_bs[bs][r]["speedup_mean"] for r in ratios]
-        stds = [results_by_bs[bs][r]["speedup_std"] for r in ratios]
+        means = [results_by_bs[bs][r]["thpt_mean"] for r in ratios]
+        stds = [results_by_bs[bs][r]["thpt_std"] for r in ratios]
         ax.errorbar(
             ratios, means, yerr=stds, marker="o", linestyle="-", label=f"batch={bs}"
         )
-    ax.set_title(f"× Speedup vs. Compression (model={model_name})")
-    ax.set_xlabel("Compression ratio kept")
-    ax.set_ylabel("× speedup (baseline_latency / compressed_latency)")
+    ax.set_title(PRETTY_MODEL_NAMES.get(model_name, model_name))
+    ax.set_xlabel("FLOPs ratio retained")
+    ax.set_ylabel("Throughput (items/sec)")
     ax.legend(title="Batch size")
+    ax.grid(True)
     pdf.savefig(fig, bbox_inches="tight")
     plt.close(fig)
 
@@ -139,17 +175,16 @@ def main():
     ap.add_argument("--calib_size", type=int, default=8192)
     ap.add_argument("--batch_size_cache", type=int, default=128)
     ap.add_argument("--batch_sizes", type=int, nargs="+", default=[8, 16, 32])
-    ap.add_argument("--iters", type=int, default=10)
-    ap.add_argument("--warmup", type=int, default=3)
+    ap.add_argument("--throughput_batches", type=int, default=30)
+    ap.add_argument("--throughput_warmup", type=int, default=5)
+    ap.add_argument("--throughput_repeats", type=int, default=5)
     args = ap.parse_args()
 
     seed_everything(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    print(f"Loading model: {args.model_name}")
     model = build_model(args.model_name, device)
 
-    print("Preparing activation cache dataloader ...")
     calib_ds = build_calib_loader(
         args.model_name, args.train_dir, args.calib_size, args.seed
     )
@@ -162,24 +197,41 @@ def main():
         args.model_name,
         args.calib_size,
         "imagenet",
-        "measure_speedup",
+        "measure_speed",
         args.seed,
         model,
         calib_dl,
         layer_keys,
     )
 
-    ratios = [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+    replace_bn_with_identity(model)
+    ratios = [0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3]
 
-    # Baseline once per batch size
-    base_times = {}
+    base_throughput_runs = measure_throughput_repeats(
+        model,
+        args.batch_sizes,
+        args.throughput_batches,
+        args.throughput_warmup,
+        args.throughput_repeats,
+        device,
+    )
+    base_throughput_stats = {
+        bs: mean_std(base_throughput_runs[bs]) for bs in args.batch_sizes
+    }
     for bs in args.batch_sizes:
-        base_times[bs] = benchmark_latencies(model, bs, args.iters, args.warmup, device)
+        m, s = base_throughput_stats[bs]
+        print(f"baseline throughput batch {bs}: {m:.2f} it/s (+/- {s:.2f})")
 
     results_by_bs = {bs: {} for bs in args.batch_sizes}
 
-    # Stream: compress -> eval -> discard
-    for r in ratios:
+    for bs in args.batch_sizes:
+        m, s = base_throughput_stats[bs]
+        results_by_bs[bs][1.0] = {
+            "thpt_mean": float(m),
+            "thpt_std": float(s),
+        }
+
+    for r in [x for x in ratios if x != 1.0]:
         print(f"ratio {r:.2f}")
         model_lr = (
             to_low_rank_activation_aware_auto(
@@ -193,7 +245,7 @@ def main():
                     args.model_name,
                     args.calib_size,
                     "imagenet",
-                    "measure_speedup",
+                    "measure_speed",
                     args.seed,
                 ),
             )
@@ -201,28 +253,34 @@ def main():
             .eval()
         )
 
+        comp_throughput_runs = measure_throughput_repeats(
+            model_lr,
+            args.batch_sizes,
+            args.throughput_batches,
+            args.throughput_warmup,
+            args.throughput_repeats,
+            device,
+        )
+
         for bs in args.batch_sizes:
-            comp_times = benchmark_latencies(
-                model_lr, bs, args.iters, args.warmup, device
-            )
-            n = min(len(base_times[bs]), len(comp_times))
-            speedups = [base_times[bs][i] / comp_times[i] for i in range(n)]
-            mean_s = statistics.mean(speedups)
-            std_s = statistics.stdev(speedups) if n > 1 else 0.0
+            comp_mean, comp_std = mean_std(comp_throughput_runs[bs])
             results_by_bs[bs][r] = {
-                "speedup_mean": float(mean_s),
-                "speedup_std": float(std_s),
+                "thpt_mean": float(comp_mean),
+                "thpt_std": float(comp_std),
             }
+            print(f"  batch {bs}: {comp_mean:.2f} it/s (+/- {comp_std:.2f})")
 
         del model_lr
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
+    # add 1.0 to ratios for plotting
+    ratios = [1.0] + ratios
     out_dir = Path(args.results_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    pdf_path = out_dir / f"{args.model_name}_speedup.pdf"
+    pdf_path = out_dir / f"{args.model_name}_throughput.pdf"
     with PdfPages(pdf_path) as pdf:
-        plot_speedup_single_page(pdf, args.model_name, ratios, results_by_bs)
+        plot_throughput(pdf, args.model_name, ratios, results_by_bs)
     print(f"Saved PDF: {pdf_path}")
 
 

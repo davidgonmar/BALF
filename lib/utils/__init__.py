@@ -3,7 +3,6 @@ import torch
 from torch import nn
 import functools as ft
 from .flops import count_model_flops
-from .layer_fusion import fuse_batch_norm_inference
 import random
 import numpy as np
 from .general import (

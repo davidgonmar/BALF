@@ -11,7 +11,7 @@ python "${SCRIPT_DIR}/measure_compression_time.py" \
   --out "${ROOT_DIR}/results/imagenet/timings/timings.json" \
   --seed 0 \
   --batch_size 64 \
-  --calib_size 512
+  --calib_size 8192 \
 
 # =========================================================
 # LaTeX table
