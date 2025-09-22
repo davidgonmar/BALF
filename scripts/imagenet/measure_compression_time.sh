@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 
-
+# use same calib_size as in our main experiments
 python "${SCRIPT_DIR}/measure_compression_time.py" \
   --train_dir "${ROOT_DIR}/imagenet-calib" \
   --out "${ROOT_DIR}/results/imagenet/timings/timings.json" \

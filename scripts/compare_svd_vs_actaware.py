@@ -40,7 +40,7 @@ plt.rcParams.update(
         "axes.labelsize": 18,  # x and y labels
         "xtick.labelsize": 16,  # x tick labels
         "ytick.labelsize": 16,  # y tick labels
-        "legend.fontsize": 14,  # legend
+        "legend.fontsize": 13,  # legend
         "legend.title_fontsize": 15,
     }
 )
@@ -176,6 +176,10 @@ def sweep_layer(
             base_model, m_act, dl_eval, device, norm_ref_sq
         )
 
+        print(r, ratio)
+        print(m_plain)
+        print(m_act)
+
         rows.append(
             {
                 "rank": r,
@@ -266,6 +270,7 @@ def main():
             min(fr_gconv, cap),
             min(fr_linear, cap),
         )
+    # script params are picked so that this makes sense in the graph
     sweep_max_rank = max(1, min(fr_conv, fr_gconv, fr_linear))
 
     rows_conv = sweep_layer(
@@ -332,13 +337,6 @@ def main():
             label="Activation-aware",
         ),
     ]
-    leg_style = plt.legend(
-        handles=style_handles,
-        title="Factorization",
-        loc="upper right",
-        bbox_to_anchor=(1.0, 1.0),
-        frameon=False,
-    )
 
     color_handles = [
         Line2D(
@@ -366,12 +364,28 @@ def main():
             label="Linear",
         ),
     ]
+    leg_style = plt.legend(
+        handles=style_handles,
+        title="Scheme",
+        loc="upper right",
+        bbox_to_anchor=(1.0, 1.0),
+        frameon=False,
+        alignment="right",
+        markerfirst=False,
+        handlelength=2.2,
+        handletextpad=0.6,
+    )
+
     leg_color = plt.legend(
         handles=color_handles,
         title="Layer",
         loc="upper right",
-        bbox_to_anchor=(1.0, 0.75),  # shift downward inside axes
+        bbox_to_anchor=(1.0, 0.7),
         frameon=False,
+        alignment="right",
+        markerfirst=False,
+        handlelength=2.2,
+        handletextpad=0.6,
     )
 
     plt.gca().add_artist(leg_style)  # keep both legends

@@ -19,4 +19,4 @@ python "${SCRIPT_DIR}/plot_n_iters_sweep.py" \
   --out_usage "${ROOT_DIR}/results/cifar10/plots/n_iters_sweep_usage.pdf" \
   --out_accuracy "${ROOT_DIR}/results/cifar10/plots/n_iters_sweep_accuracy.pdf"
   
-echo "Plots saved in ${ROOT_DIR}/results/cifar10/plots/n_iters_sweep.pdf."
+echo "Plots saved in ${ROOT_DIR}/results/cifar10/plots/n_iters_sweep.pdf"

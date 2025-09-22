@@ -1,3 +1,7 @@
+"""
+Renders tabular results for ./measure_compression_time.py
+"""
+
 import argparse
 import json
 from pathlib import Path

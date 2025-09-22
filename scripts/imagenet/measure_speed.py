@@ -99,7 +99,7 @@ PRETTY_MODEL_NAMES = {
 }
 
 
-@torch.no_grad()
+@torch.inference_mode()
 def throughput_single_measure(model, batch_size, throughput_batches, warmup, device):
     model.to(device).eval()
     torch.backends.cudnn.benchmark = True

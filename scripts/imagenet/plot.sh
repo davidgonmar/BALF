@@ -62,8 +62,8 @@ python "${PLOT_SCRIPT}" \
   --energy_act_aware_json "${ROOT_DIR}/results/imagenet/resnext101_32x8d/factorized_posttrain/energy_act_aware/results.json" \
   --output_dir "${OUTPUT_DIR}"
 
-# VIT
-echo "=== Plotting ViT-B_16 (single figure) ==="
+# ViT
+echo "=== Plotting ViT-B/16 (single figure) ==="
 python "${PLOT_SCRIPT}" \
   --model_name vit_b_16 \
   --flops_json "${ROOT_DIR}/results/imagenet/vit_b_16/factorized_posttrain/flops_auto/results.json" \
@@ -76,7 +76,7 @@ echo "Plots saved in ${OUTPUT_DIR}."
 
 
 # DeiT
-echo "=== Plotting DeiT-B_16 (single figure) ==="
+echo "=== Plotting DeiT-B/16 (single figure) ==="
 python "${PLOT_SCRIPT}" \
   --model_name deit_b_16 \
   --flops_json "${ROOT_DIR}/results/imagenet/deit_b_16/factorized_posttrain/flops_auto/results.json" \

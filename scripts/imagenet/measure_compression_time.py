@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+"""
+Script used to benchmark the runtime/peak memory usage of our method
+(supports different models).
+"""
+
 import argparse
 import json
 import shutil
@@ -113,15 +117,16 @@ def main():
 
         model_lr, timings = to_low_rank_activation_aware_auto(
             model=model,
-            data_or_cache=dl,  # pass DataLoader to include cache time
+            data_or_cache=dl,  # pass DataLoader to include activation caching time when benchmarking
             keys=keys,
             ratio_to_keep=0.6,  # fixed FLOPs keep
             metric="flops",
             inplace=True,
-            save_dir=save_dir,  # use then delete
+            save_dir=save_dir,
             benchmark=True,
         )
 
+        # we do not want to keep the cache, as future runs need to re-run it to benchmark properly
         shutil.rmtree(save_dir, ignore_errors=True)
 
         timings["model"] = name
@@ -132,7 +137,7 @@ def main():
         del model_lr
         torch.cuda.empty_cache()
 
-        # make sure memory allocated is less than 10MB
+        # make sure memory allocated is less than 10MB (ie that future runs will "start" clean)
         assert (
             torch.cuda.memory_allocated() <= 10 * 1024 * 1024
         ), f"cuda memory should be less than 10MB but got {torch.cuda.memory_allocated()}"

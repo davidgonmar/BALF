@@ -35,7 +35,6 @@ def replace_with_factory(
         for part in parent_path:
             parent_module = getattr(parent_module, part)
         setattr(parent_module, attr_name, factory_fn(name, module))
-        # print(f"after {name:30s}  mem = {torch.cuda.memory_allocated()/1e6:8.1f} MB")
         del module
         module_dict[name] = None
     return model

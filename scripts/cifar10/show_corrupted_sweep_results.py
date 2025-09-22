@@ -1,5 +1,5 @@
 """
-Script to plot the results of the CIFAR-10-C robustness evaluation (images only).
+Script to plot the results of the CIFAR-10-C robustness evaluation.
 """
 
 import argparse
@@ -24,8 +24,7 @@ def load_results(path: Path):
         return json.load(f)
 
 
-def summarize_mode(data):
-    mode = data["meta"]["mode"]
+def summarize_mode(data, mode):
     x_key = "params_ratio" if mode == "params_auto" else "flops_ratio"
 
     base_clean_f = float(data["clean"]["baseline"]["accuracy"])
@@ -66,19 +65,6 @@ def summarize_mode(data):
         .sort_values("x_ratio")
         .reset_index(drop=True)
     )
-
-    # Derive deltas and gaps (percentage points)
-    base = (
-        df.iloc[df["x_ratio"].astype(float).argmax()]
-        if (df["x_ratio"] == 1.0).sum() == 0
-        else df[df["x_ratio"] == 1.0].iloc[0]
-    )
-    df["delta_clean_pp"] = df["clean_acc_pct"] - base["clean_acc_pct"]
-    df["delta_shift_pp"] = df["c10c_mean_acc_pct"] - base["c10c_mean_acc_pct"]
-    df["excess_drop_pp"] = df["delta_shift_pp"] - df["delta_clean_pp"]
-    df["gap_pp"] = df["clean_acc_pct"] - df["c10c_mean_acc_pct"]
-    df["baseline_gap_pp"] = float(base["clean_acc_pct"] - base["c10c_mean_acc_pct"])
-    df["excess_gap_pp"] = df["gap_pp"] - df["baseline_gap_pp"]
     return df, mode, x_key
 
 
@@ -104,7 +90,7 @@ def plot_lines_with_gap_bars(df, mode, x_key, out_pdf):
 
     # axis labels
     ax.set_ylabel("Top-1 Accuracy (%)")
-    ax.set_xlabel("Params ratio" if x_key == "params_ratio" else "FLOPs ratio")
+    ax.set_xlabel("Parameters ratio" if x_key == "params_ratio" else "FLOPs ratio")
     ax.set_ylim(0, 100)
 
     # add horizontal padding on x axis
@@ -132,10 +118,14 @@ def main():
     out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
 
-    df_p, mode_p, xkey_p = summarize_mode(load_results(Path(args.params_auto_json)))
+    df_p, mode_p, xkey_p = summarize_mode(
+        load_results(Path(args.params_auto_json)), "params_auto"
+    )
     plot_lines_with_gap_bars(df_p, mode_p, xkey_p, out / "params_auto_cifar10c.pdf")
 
-    df_f, mode_f, xkey_f = summarize_mode(load_results(Path(args.flops_auto_json)))
+    df_f, mode_f, xkey_f = summarize_mode(
+        load_results(Path(args.flops_auto_json)), "flops_auto"
+    )
     plot_lines_with_gap_bars(df_f, mode_f, xkey_f, out / "flops_auto_cifar10c.pdf")
 
 

@@ -1,3 +1,9 @@
+"""
+This script evaluates low-rank factorization of ImageNet models.
+It sweeps over different compression ratios and records accuracy.
+It can use BALF (our proposed method) or other baselines.
+"""
+
 import argparse
 import json
 from pathlib import Path

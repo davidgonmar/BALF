@@ -1,3 +1,9 @@
+"""
+Script used to extract a random uniform sample of k images from the
+ImageNet tar files. We use this to extract a calibration subset from
+the train set for activation-aware low-rank factorization.
+"""
+
 import argparse
 import os
 import random
@@ -39,7 +45,7 @@ def sample_from_tar(train_tar_path, out_dir, k=1024, seed=0):
     # Pick random global indices
     chosen_indices = set(rng.sample(range(total), k))
 
-    # Map global indices → per-class local indices
+    # Map global indices -> per-class local indices
     selected_by_class = {}
     offset = 0
     for cm, n in counts:

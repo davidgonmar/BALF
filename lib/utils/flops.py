@@ -1,7 +1,7 @@
 """
 This is a small helper to count model FLOPs based on https://dev-discuss.pytorch.org/t/the-ideal-pytorch-flop-counter-with-torch-dispatch/505.
-Note that, in general, the actual FLOPs would be the double of what we count here,
-but it is fine, as we use them for relative comparisons.
+Note that, strictly speaking, we are counting MACs, and FLOPs = 2 * MACs in general.
+It is not important because we are only interested in relative comparisons.
 """
 
 import torch

@@ -12,8 +12,7 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 from matplotlib.lines import Line2D
 
-# Compact, publication-ready settings (no external styles)
-FIGSIZE = (3.5, 2.5)  # inches (width, height)
+FIGSIZE = (3.5, 2.5)
 DPI = 300
 plt.rcParams.update(
     {

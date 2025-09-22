@@ -84,7 +84,7 @@ def main():
     train_ds = datasets.CIFAR10(
         root="data", train=True, transform=transform, download=True
     )
-    # Fixed subset for reproducibility across models in a single run
+
     subset_indices = torch.randperm(len(train_ds))[: args.calib_size]
     subset = torch.utils.data.Subset(train_ds, subset_indices)
     train_dl = DataLoader(subset, batch_size=256)

@@ -1,20 +1,6 @@
-#!/usr/bin/env python3
 """
-imagenet_val_to_imagefolder_from_meta.py
-
-Make an ImageFolder layout for the **ImageNet validation** set using ONLY:
-  --val-tar:    ILSVRC2012_img_val.tar
-  --devkit-tar: ILSVRC2012_devkit_t12.tar.gz
-
-We read:
-  - data/ILSVRC2012_validation_ground_truth.txt (50k labels, 1..1000)
-  - data/meta.mat or data/meta_clsloc.mat (maps ILSVRC2012_ID -> WNID)
-
-Output:
-  <out>/val/<wnid>/*.JPEG
-
-Requires: tqdm, scipy
-  pip install tqdm scipy
+Script to extract ImageNet validation images into an ImageFolder structure
+from the official validation tar and devkit.
 """
 
 import argparse
@@ -33,7 +19,6 @@ def _is_image(name: str) -> bool:
 
 
 def _read_member_text(tf: tarfile.TarFile, rel_candidates):
-    """Return decoded text from the first member whose name ends with any candidate path."""
     names = tf.getnames()
     for rel in rel_candidates:
         m = tf.getmember(rel) if rel in names else None
@@ -48,7 +33,6 @@ def _read_member_text(tf: tarfile.TarFile, rel_candidates):
 
 
 def _read_member_bytes(tf: tarfile.TarFile, rel_candidates):
-    """Return raw bytes from the first member whose name ends with any candidate path."""
     names = tf.getnames()
     for rel in rel_candidates:
         m = tf.getmember(rel) if rel in names else None
@@ -192,7 +176,7 @@ def main():
     out_root.mkdir(parents=True, exist_ok=True)
 
     build_val_imagefolder(Path(args.val_tar), Path(args.devkit_tar), out_root)
-    print(f"✅ Done: ImageFolder at {out_root}")
+    print(f"Done: ImageFolder at {out_root}")
 
 
 if __name__ == "__main__":

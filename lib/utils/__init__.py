@@ -1,10 +1,6 @@
-from typing import List, Callable, Dict
+from typing import List, Dict
 import torch
-from torch import nn
-import functools as ft
 from .flops import count_model_flops
-import random
-import numpy as np
 from .general import (
     gather_submodules,
     keys_passlist_should_do,
@@ -15,10 +11,7 @@ from .general import (
     is_linear,
     is_conv2d,
 )
-from typing import Tuple, Union
-from torch.utils.data import DataLoader, Subset
 from pathlib import Path
-import contextlib as cl
 
 
 @torch.no_grad()

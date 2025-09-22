@@ -1,3 +1,8 @@
+"""
+This script plots the results of ./n_iters_sweep.py.
+It generatesp plots of number of iterations vs FLOPs ratio (to measure how close the usage is to the target) and accuracy.
+"""
+
 import argparse
 import json
 from pathlib import Path

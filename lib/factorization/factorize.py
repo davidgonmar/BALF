@@ -23,10 +23,9 @@ def maximize_energy(
     """
     Multiple-choice knapsack via Lagrangian relaxation.
     Assumptions (as in the paper):
-      (1) Feasible instance exists.
-      (2) All costs strictly positive.
-      (3) Within each layer, choices sorted by nondecreasing cost, so min(argmax) breaks ties by smallest cost.
-      (4) Within each layer, energies are nondecreasing.
+      (1) The problem is feasible.
+      (2) Within each layer, costs and energies are nonnegative.
+      (3) Within each layer, costs and energies are nondecreasing with rank.
     Returns 1-based indices (one per layer, indicating the rank to keep).
     """
 
@@ -48,6 +47,7 @@ def maximize_energy(
             j = int(
                 np.argmax(vals)
             )  # np.argmax returns the first index with the max value, i.e., min(argmax)
+            # basically, as we have nondecreasing energies and costs, this is equivalent min(argmax(vals))
             sel_idx.append(j)
             total_c += float(c_i[j])
         return sel_idx, total_c
