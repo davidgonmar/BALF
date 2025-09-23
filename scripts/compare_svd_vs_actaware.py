@@ -160,7 +160,11 @@ def sweep_layer(
     norm_ref_sq = frobenius_norm_outputs_squared(base_model, dl_eval, device)
 
     rows = []
-    for r in range(1, sweep_max_rank + 1):
+    # minimum ratio is 0.15
+    min_rank = int(max(1, sweep_max_rank * 0.15))
+    max_n_steps = 20  # fixed
+    stepsize = int(max(1, (sweep_max_rank - min_rank) // max_n_steps))
+    for r in range(min_rank, sweep_max_rank + 1, stepsize):
         ratio = r / sweep_max_rank
         cfg = {layer_key: {"name": "rank_ratio_to_keep", "value": ratio}}
 
@@ -175,22 +179,16 @@ def sweep_layer(
         err_act_sq = output_frobenius_error_squared(
             base_model, m_act, dl_eval, device, norm_ref_sq
         )
-
-        print(r, ratio)
-        print(m_plain)
-        print(m_act)
-
         rows.append(
             {
-                "rank": r,
                 "ratio": ratio,
                 "frob_output_error_sq_plain": err_plain_sq,
                 "frob_output_error_sq_actaware": err_act_sq,
             }
         )
-        # remove folder
-        if os.path.exists(save_dir_tmp):
-            shutil.rmtree(save_dir_tmp)
+    # remove folder
+    if os.path.exists(save_dir_tmp):
+        shutil.rmtree(save_dir_tmp)
     return rows
 
 
@@ -215,7 +213,6 @@ def main():
     ap.add_argument("--n_samples_cache", type=int, default=1024)
     ap.add_argument("--n_samples_eval", type=int, default=1024)
     ap.add_argument("--batch_size", type=int, default=1024)
-    ap.add_argument("--max_rank_cap", type=int, default=None)
     args = ap.parse_args()
 
     seed_everything(args.seed)
@@ -263,27 +260,11 @@ def main():
     fr_conv = max_feasible_rank_module(base_conv.conv)
     fr_gconv = max_feasible_rank_module(base_gconv.gconv)
     fr_linear = max_feasible_rank_module(base_linear.fc)
-    if args.max_rank_cap:
-        cap = int(args.max_rank_cap)
-        fr_conv, fr_gconv, fr_linear = (
-            min(fr_conv, cap),
-            min(fr_gconv, cap),
-            min(fr_linear, cap),
-        )
-    # script params are picked so that this makes sense in the graph
-    sweep_max_rank = max(1, min(fr_conv, fr_gconv, fr_linear))
 
-    rows_conv = sweep_layer(
-        base_conv, "conv", dl_calib, dl_eval, device, sweep_max_rank
-    )
-    rows_gconv = sweep_layer(
-        base_gconv, "gconv", dl_calib, dl_eval, device, sweep_max_rank
-    )
-    rows_linear = sweep_layer(
-        base_linear, "fc", dl_calib, dl_eval, device, sweep_max_rank
-    )
+    rows_conv = sweep_layer(base_conv, "conv", dl_calib, dl_eval, device, fr_conv)
+    rows_gconv = sweep_layer(base_gconv, "gconv", dl_calib, dl_eval, device, fr_gconv)
+    rows_linear = sweep_layer(base_linear, "fc", dl_calib, dl_eval, device, fr_linear)
 
-    ranks = [r["rank"] for r in rows_conv]
     plt.figure(figsize=(7.5, 4.5))
 
     layer_colors = {
@@ -299,7 +280,7 @@ def main():
 
     def plot_layer(rows, color, marker):
         plt.plot(
-            ranks,
+            [r["ratio"] for r in rows],
             [r["frob_output_error_sq_plain"] for r in rows],
             color=color,
             marker=marker,
@@ -308,7 +289,7 @@ def main():
             markersize=3,
         )
         plt.plot(
-            ranks,
+            [r["ratio"] for r in rows],
             [r["frob_output_error_sq_actaware"] for r in rows],
             color=color,
             marker=marker,
@@ -321,10 +302,10 @@ def main():
     plot_layer(rows_gconv, layer_colors["GConv"], layer_markers["GConv"])
     plot_layer(rows_linear, layer_colors["Linear"], layer_markers["Linear"])
 
-    plt.xlabel("Rank")
+    plt.xlabel("Rank ratio")
     plt.ylabel("$\|\Delta Y\|_F^2 / \|Y\|_F^2$")
     plt.grid(True, linestyle="--", alpha=0.3)
-    plt.xlim(1, sweep_max_rank)
+    plt.xlim(0.2, 1.0)  # min ratio show = 0.2
 
     style_handles = [
         Line2D([0], [0], color="0.25", linestyle="-", linewidth=1.6, label="Standard"),
@@ -378,7 +359,7 @@ def main():
 
     leg_color = plt.legend(
         handles=color_handles,
-        title="Layer",
+        title="Layer type",
         loc="upper right",
         bbox_to_anchor=(1.0, 0.7),
         frameon=False,
@@ -393,7 +374,7 @@ def main():
     plt.tight_layout()
     out_dir = Path(args.results_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    plt.savefig(out_dir / "rank_vs_output_frob.pdf")
+    plt.savefig(out_dir / "rankratio_vs_output_frob.pdf")
 
 
 if __name__ == "__main__":

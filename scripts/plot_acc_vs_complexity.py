@@ -213,15 +213,15 @@ if __name__ == "__main__":
     ax.yaxis.set_major_locator(MultipleLocator(0.1))
 
     ax.set_xlabel("FLOPs Ratio")
-    ax_top.set_xlabel("Params Ratio")
+    ax_top.set_xlabel("Parameters Ratio")
     ax.set_ylabel("Accuracy")
     pretty = model_name_to_pretty_name.get(args.model_name, args.model_name)
     ax.set_title(f"{pretty}")
 
     # Legend A: line styles (axis semantics)
     linestyle_handles = [
-        Line2D([0], [0], linestyle="-", color="k", label="Params (solid)"),
-        Line2D([0], [0], linestyle="--", color="k", label="FLOPs (dashed)"),
+        Line2D([0], [0], linestyle="-", color="k", label="Parameters"),
+        Line2D([0], [0], linestyle="--", color="k", label="FLOPs"),
     ]
 
     # ResNeXt-101 has curves to the left, so move legend to right

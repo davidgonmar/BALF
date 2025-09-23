@@ -123,7 +123,7 @@ Token merging does not reduce the number of parameters, so all methods except Dy
 Base accuracy of DeiT-B is 81.8%.
 
 
-## Compressing Neural Networks: Towards Determining the Optimal Layer-wise Decomposition (https://openreview.net/pdf?id=BvJkwMhyInm)
+## [Compressing Neural Networks: Towards Determining the Optimal Layer-wise Decomposition](https://openreview.net/pdf?id=BvJkwMhyInm)
 
 
 ### Results on ResNet-20, CIFAR-10
@@ -188,7 +188,7 @@ Transformed data: FLOPs delta and acc delta
 
 
 #### Notes
-Method is called SFVR.
+Method is called FVRCP.
 
 ## [SVD-NAS: Coupling Low-Rank Approximation and Neural Architecture Search](https://openaccess.thecvf.com/content/WACV2023/papers/Yu_SVD-NAS_Coupling_Low-Rank_Approximation_and_Neural_Architecture_Search_WACV_2023_paper.pdf)
 

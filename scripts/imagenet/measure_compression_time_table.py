@@ -18,7 +18,7 @@ SUPPORTED = [
 PRETTY = {
     "resnet18": "ResNet-18",
     "resnet50": "ResNet-50",
-    "mobilenet_v2": "MobileNetV2",
+    "mobilenet_v2": "MobileNet-V2",
     "resnext50_32x4d": r"ResNeXt-50 (32$\times$4d)",
     "resnext101_32x8d": r"ResNeXt-101 (32$\times$8d)",
     "vit_b_16": "ViT-B/16",
