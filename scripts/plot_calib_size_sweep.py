@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 import sys
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 
 MODEL_NAME_TO_PRETTY = {
     "resnet20": "ResNet-20",
@@ -22,6 +23,17 @@ MODEL_NAME_TO_PRETTY = {
     "vit_b_16": "ViT-B/16",
     "deit_b_16": "DeiT-B/16",
 }
+
+mpl.rcParams.update(
+    {
+        "font.size": 14,  # base font size
+        "axes.titlesize": 16,  # figure title
+        "axes.labelsize": 14,  # x/y labels
+        "xtick.labelsize": 12,
+        "ytick.labelsize": 12,
+        "legend.fontsize": 12,
+    }
+)
 
 
 def load_results_json(d: Path):

@@ -27,7 +27,6 @@ python "${SCRIPT_DIR}/corrupted_sweep.py" \
   --seed 0
 
 
-
 # Then, plot the results
 OUT_DIR="${ROOT_DIR}/results/cifar10/resnet20/figs_appendix_cifar10c"
 PARAMS_JSON="${ROOT_DIR}/results/cifar10/resnet20/factorized_posttrain_cifar10c/params_auto/results.json"
