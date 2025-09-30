@@ -4,7 +4,7 @@ This repository contains the code to reproduce the experiments for our paper.
 
 *Author: David González Martínez*
 
-*Paper: [arXiv](https://arxiv.org/abs/XXXX.XXXXX)*
+*Paper: [arXiv](https://arxiv.org/abs/2509.25136)*
 
 The `./lib` directory contains the implementation of the generalized activation-aware factorization method, as well as the rank allocation strategy.
 It also allows for energy allocation and selecting fixed rank ratios per layer, as well as regular (non-activation-aware) SVD-based factorization (energy-based).
