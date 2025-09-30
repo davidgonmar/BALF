@@ -62,8 +62,28 @@ Results are printed to the console and also saved in a text file in `./results`.
 
 Most scripts usage can be identified from the name. They generally also include a header with a brief description of their purpose.
 
-### Other Works Data
+### Results of Other Works
 For comparison with other works, we either extracted the data from plots in the corresponding papers, or used data provided in tables. As we value transparency, we provide additional information in `./other-works-results.md`.
+
+## Others
+
+If you want to cite this work, you can use
+
+```bibtex
+@article{gonzalezmartinez2025balf,
+  title         = {BALF: Budgeted Activation-Aware Low-Rank Factorization for Fine-Tuning-Free Model Compression},
+  author        = {Gonz{\'a}lez Mart{\'\i}nez, David},
+  year          = {2025},
+  eprint        = {2509.25136},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.LG},
+  doi           = {10.48550/arXiv.2509.25136},
+  url           = {https://arxiv.org/abs/2509.25136},
+  note          = {arXiv preprint}
+}
+```
+
+If you have any questions or suggestions, feel free to email me.
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
