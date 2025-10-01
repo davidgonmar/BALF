@@ -2,7 +2,7 @@
 
 This repository contains the code to reproduce the experiments for our paper.
 
-*Author: David González Martínez*
+*Author: David González-Martínez*
 
 *Paper: https://arxiv.org/abs/2509.25136*
 
@@ -70,16 +70,14 @@ For comparison with other works, we either extracted the data from plots in the 
 If you want to cite this work, you can use
 
 ```bibtex
-@article{gonzalezmartinez2025balf,
-  title         = {{BALF}: Budgeted Activation-Aware Low-Rank Factorization for Fine-Tuning-Free Model Compression,
-  author        = {{Gonz{\'a}lez Mart{\'{\i}}nez}, David},
-  year          = {2025},
-  eprint        = {2509.25136},
-  archivePrefix = {arXiv},
-  primaryClass  = {cs.LG},
-  doi           = {10.48550/arXiv.2509.25136},
-  url           = {https://arxiv.org/abs/2509.25136},
-  note          = {arXiv preprint}
+@misc{gonzalezmartinez2025balfbudgetedactivationawarelowrank,
+      title={BALF: Budgeted Activation-Aware Low-Rank Factorization for Fine-Tuning-Free Model Compression}, 
+      author={David González-Martínez},
+      year={2025},
+      eprint={2509.25136},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2509.25136}, 
 }
 ```
 
