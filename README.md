@@ -71,8 +71,8 @@ If you want to cite this work, you can use
 
 ```bibtex
 @article{gonzalezmartinez2025balf,
-  title         = {BALF: Budgeted Activation-Aware Low-Rank Factorization for Fine-Tuning-Free Model Compression},
-  author        = {Gonz{\'a}lez Mart{\'\i}nez, David},
+  title         = {{BALF}: Budgeted Activation-Aware Low-Rank Factorization for Fine-Tuning-Free Model Compression,
+  author        = {{Gonz{\'a}lez Mart{\'{\i}}nez}, David},
   year          = {2025},
   eprint        = {2509.25136},
   archivePrefix = {arXiv},
