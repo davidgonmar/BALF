@@ -8,6 +8,7 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 EVAL_SUBSET_SIZE=-1
 
 
+export TIMM_FUSED_ATTN=0 # so FLOPs are counted correctly
 
 # =========================================================
 # ResNet18
