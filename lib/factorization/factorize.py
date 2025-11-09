@@ -329,7 +329,7 @@ def factorize_conv2d_whitened(
         U, S, V_T = decompose_params(data_whitening_matrix_inverse @ reshaped)
     else:
         U, S, V_T = factors
-    rank = get_rank(W, U, S, V_T)
+    rank = get_rank(reshaped, U, S, V_T)
     if not should_do_low_rank(reshaped, rank):
         return module
     U, S, V_T = crop_svd(
@@ -559,10 +559,7 @@ def to_low_rank_activation_aware_auto(
     )
 
     if metric == "rank":
-        costs = [
-            torch.cumsum(torch.arange(1, len(e) + 1, device=e.device), 0)
-            for e in cum_energies
-        ]
+        costs = [torch.arange(1, len(e) + 1, device=e.device) for e in cum_energies]
         total_budget = sum(len(e) for e in cum_energies) * ratio_to_keep
     elif metric == "flops":
         make_cost = lambda w, o, mod: (
@@ -819,7 +816,7 @@ def factorize_conv2d(module: nn.Conv2d, get_rank: Callable, factors=None):
         U, S, V_T = factors
 
     # Decide rank and early exit if not beneficial
-    rank = get_rank(W, U, S, V_T)
+    rank = get_rank(reshaped, U, S, V_T)
     if not should_do_low_rank(reshaped, rank):
         return module
 
