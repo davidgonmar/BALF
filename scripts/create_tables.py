@@ -51,7 +51,7 @@ def fmt_delta(x: Optional[float], base: Optional[float], decimals: int) -> str:
     if x is None or base is None:
         return r"\textemdash{}"
     d = x - base
-    return f"{d:+.{decimals}f}"
+    return f"${d:+.{decimals}f}$"
 
 
 def main():
