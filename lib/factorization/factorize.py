@@ -640,7 +640,7 @@ def to_low_rank_activation_aware_auto(
     return model
 
 
-def get_rank_to_keep_from_rank_ratio(S: torch.Tensor, rank_ratio: float):
+def get_rank_to_keep_from_rank_ratio(X, S: torch.Tensor, rank_ratio: float):
     """
     X is either a matrix or a batch of matrices (each one from a group)
     S is either a vector or a batch of vectors (each one from a group)
@@ -652,7 +652,7 @@ def get_rank_to_keep_from_rank_ratio(S: torch.Tensor, rank_ratio: float):
     return max(k, 1)
 
 
-def get_rank_to_keep_from_energy_ratio(S: torch.Tensor, energy_ratio: float) -> int:
+def get_rank_to_keep_from_energy_ratio(X, S: torch.Tensor, energy_ratio: float) -> int:
     """
     X is either a matrix or a batch of matrices (each one from a group)
     S is either a vector or a batch of vectors (each one from a group)

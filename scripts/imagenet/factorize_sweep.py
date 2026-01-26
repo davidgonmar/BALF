@@ -104,25 +104,34 @@ model_dict = {
 
 model = model_dict[args.model_name]().to(device)
 
+# We use the recommended preprocessing for each model (based on timm for the vision transformers)
+# See also https://huggingface.co/spaces/Roll20/pet_score/blob/b258ef28152ab0d5b377d9142a23346f863c1526/lib/timm/data/transforms_factory.py for computing the resize_size
 interp_mode = (
     transforms.InterpolationMode.BICUBIC
     if args.model_name in ["vit_b_16", "deit_b_16"]
     else transforms.InterpolationMode.BILINEAR
 )
+ds_mean, ds_std = (
+    ((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    if args.model_name == "vit_b_16"
+    else (imagenet_mean, imagenet_std)
+)
+resize = 248 if args.model_name in ["vit_b_16", "deit_b_16"] else 256
+
 eval_tf = transforms.Compose(
     [
-        transforms.Resize(256, interpolation=interp_mode),
+        transforms.Resize(resize, interpolation=interp_mode),
         transforms.CenterCrop(224),
         transforms.ToTensor(),
-        transforms.Normalize(mean=imagenet_mean, std=imagenet_std),
+        transforms.Normalize(mean=ds_mean, std=ds_std),
     ]
 )
 train_tf = transforms.Compose(
     [
-        transforms.Resize(256, interpolation=interp_mode),
+        transforms.Resize(resize, interpolation=interp_mode),
         transforms.CenterCrop(224),
         transforms.ToTensor(),
-        transforms.Normalize(mean=imagenet_mean, std=imagenet_std),
+        transforms.Normalize(mean=ds_mean, std=ds_std),
     ]
 )
 
