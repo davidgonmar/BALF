@@ -19,13 +19,6 @@ class LowRankLinear(nn.Module):
     def __repr__(self):
         return f"LowRankLinear(in_features={self.w0.shape[0]}, out_features={self.w1.shape[0]}, rank={self.w0.shape[1]}, bias={self.bias is not None})"
 
-    def to_linear(self):
-        res = nn.Linear(self.w0.shape[0], self.w1.shape[1], bias=self.bias is not None)
-        res.weight = nn.Parameter((self.w0 @ self.w1).t().contiguous())
-        if self.bias is not None:
-            res.bias = self.bias
-        return res
-
 
 class LowRankConv2d(nn.Module):
     def __init__(

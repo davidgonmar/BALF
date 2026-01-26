@@ -640,9 +640,7 @@ def to_low_rank_activation_aware_auto(
     return model
 
 
-def get_rank_to_keep_from_rank_ratio(
-    X: torch.tensor, S: torch.Tensor, rank_ratio: float
-):
+def get_rank_to_keep_from_rank_ratio(S: torch.Tensor, rank_ratio: float):
     """
     X is either a matrix or a batch of matrices (each one from a group)
     S is either a vector or a batch of vectors (each one from a group)
@@ -654,9 +652,7 @@ def get_rank_to_keep_from_rank_ratio(
     return max(k, 1)
 
 
-def get_rank_to_keep_from_energy_ratio(
-    X: torch.Tensor, S: torch.Tensor, energy_ratio: float
-) -> int:
+def get_rank_to_keep_from_energy_ratio(S: torch.Tensor, energy_ratio: float) -> int:
     """
     X is either a matrix or a batch of matrices (each one from a group)
     S is either a vector or a batch of vectors (each one from a group)
@@ -753,9 +749,10 @@ def to_low_rank_activation_aware_manual(
         U, S, V_T = _load_fac(name)
         fac = (U, S, V_T)
         rule = cfg_dict[name]
+        reshaped = get_reshape(module)(module.weight.detach())
 
         def selector(*args):
-            ret = rank_to_keep_name_to_fn[rule["name"]](module.weight, S, rule["value"])
+            ret = rank_to_keep_name_to_fn[rule["name"]](reshaped, S, rule["value"])
             return ret
 
         if is_linear(module):
@@ -868,8 +865,9 @@ def to_low_rank_manual(
 
     def factory_fn(name, module):
         rule = cfg_dict[name]
+        reshaped = get_reshape(module)(module.weight.detach())
         selector = lambda W, U, S, V_T: rank_to_keep_name_to_fn[rule["name"]](
-            module.weight, S, rule["value"]
+            reshaped, S, rule["value"]
         )
 
         if isinstance(module, nn.Linear):
