@@ -2,9 +2,6 @@
 
 This repository contains the code to reproduce the experiments for our paper.
 
-*Author: David González-Martínez*
-
-*Paper: https://arxiv.org/abs/2509.25136*
 
 The `./lib` directory contains the implementation of the generalized activation-aware factorization method, as well as the rank allocation strategy.
 It also allows for energy allocation and selecting fixed rank ratios per layer, as well as regular (non-activation-aware) SVD-based factorization (energy-based).
@@ -65,21 +62,6 @@ Most scripts usage can be identified from the name. They generally also include 
 ### Results of Other Works
 For comparison with other works, we either extracted the data from plots in the corresponding papers, or used data provided in tables. As we value transparency, we provide additional information in `./other-works-results.md`.
 
-## Others
-
-If you want to cite this work, you can use
-
-```bibtex
-@misc{gonzalezmartinez2025balfbudgetedactivationawarelowrank,
-      title={BALF: Budgeted Activation-Aware Low-Rank Factorization for Fine-Tuning-Free Model Compression}, 
-      author={David González-Martínez},
-      year={2025},
-      eprint={2509.25136},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG},
-      url={https://arxiv.org/abs/2509.25136}, 
-}
-```
 
 If you have any questions or suggestions, feel free to email me.
 

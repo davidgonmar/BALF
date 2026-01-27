@@ -166,3 +166,5 @@ imagenet-calib/
 imagenet-val/
 
 CIFAR-10-C
+
+/results copy
