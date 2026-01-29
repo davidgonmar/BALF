@@ -265,7 +265,7 @@ def main():
     rows_gconv = sweep_layer(base_gconv, "gconv", dl_calib, dl_eval, device, fr_gconv)
     rows_linear = sweep_layer(base_linear, "fc", dl_calib, dl_eval, device, fr_linear)
 
-    plt.figure(figsize=(7.5, 4.5))
+    plt.figure(figsize=(7.5, 3.7))
 
     layer_colors = {
         "Conv": "C0",
