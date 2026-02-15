@@ -115,6 +115,14 @@ if __name__ == "__main__":
         required=True,
         help="Path to energy_act_aware results.json",
     )
+    parser.add_argument(
+        "--uniform_json", required=False, help="Path to uniform results.json"
+    )
+    parser.add_argument(
+        "--uniform_act_aware_json",
+        required=False,
+        help="Path to uniform_act_aware results.json",
+    )
     parser.add_argument("--output_dir", default=".", help="Directory to save the PDF")
     args = parser.parse_args()
 
@@ -126,12 +134,16 @@ if __name__ == "__main__":
         "params_auto": load_results(args.params_json),
         "energy": load_results(args.energy_json),
         "energy_aa": load_results(args.energy_act_aware_json),
+        "uniform": load_results(args.uniform_json),
+        "uniform_act_aware": load_results(args.uniform_act_aware_json),
     }
 
     method_color = {
         "auto": "C0",
         "energy": "C1",
         "energy_aa": "C2",
+        "uniform": "C3",
+        "uniform_aa": "C4",
     }
 
     # Markers per series
@@ -140,6 +152,8 @@ if __name__ == "__main__":
         "params_auto": "o",
         "energy": "s",
         "energy_aa": "^",
+        "uniform": "D",
+        "uniform_act_aware": "v",
     }
 
     # Helper to map series key -> method bucket for colors
@@ -150,6 +164,10 @@ if __name__ == "__main__":
             return "energy"
         if key == "energy_aa":
             return "energy_aa"
+        if key == "uniform":
+            return "uniform"
+        if key == "uniform_act_aware":
+            return "uniform_aa"
         return "auto"
 
     fig, ax = plt.subplots(figsize=FIGSIZE)
@@ -158,7 +176,7 @@ if __name__ == "__main__":
     plotted_any = False
     flops_x_all, params_x_all = [], []
 
-    for key in ["flops_auto", "energy", "energy_aa"]:
+    for key in ["flops_auto", "energy", "energy_aa", "uniform", "uniform_act_aware"]:
         results = data.get(key)
         if results:
             x_vals, y_vals = extract_xy(results, "flops_ratio")
@@ -178,7 +196,7 @@ if __name__ == "__main__":
         else:
             print(f"Skipping '{key}' on FLOPs axis: no data.")
 
-    for key in ["params_auto", "energy", "energy_aa"]:
+    for key in ["params_auto", "energy", "energy_aa", "uniform", "uniform_act_aware"]:
         results = data.get(key)
         if results:
             x_vals, y_vals = extract_xy(results, "params_ratio")
@@ -244,9 +262,17 @@ if __name__ == "__main__":
     # Legend B: colors (methods)
     method_handles = [
         Line2D([0], [0], linestyle="-", color=method_color["auto"], label="BALF"),
-        Line2D([0], [0], linestyle="-", color=method_color["energy"], label="energy"),
+        Line2D([0], [0], linestyle="-", color=method_color["energy"], label="Energy"),
         Line2D(
-            [0], [0], linestyle="-", color=method_color["energy_aa"], label="energy-aa"
+            [0], [0], linestyle="-", color=method_color["energy_aa"], label="Energy-AA"
+        ),
+        Line2D([0], [0], linestyle="-", color=method_color["uniform"], label="Uniform"),
+        Line2D(
+            [0],
+            [0],
+            linestyle="-",
+            color=method_color["uniform_aa"],
+            label="Uniform-AA",
         ),
     ]
 

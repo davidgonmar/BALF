@@ -640,18 +640,6 @@ def to_low_rank_activation_aware_auto(
     return model
 
 
-def get_rank_to_keep_from_rank_ratio(X, S: torch.Tensor, rank_ratio: float):
-    """
-    X is either a matrix or a batch of matrices (each one from a group)
-    S is either a vector or a batch of vectors (each one from a group)
-    """
-    if S.ndim == 1:
-        S = S.unsqueeze(0)
-    assert 0.0 <= rank_ratio <= 1.0, "rank_ratio must be in [0, 1]"
-    k = math.ceil(S.shape[1] * rank_ratio)
-    return max(k, 1)
-
-
 def get_rank_to_keep_from_energy_ratio(X, S: torch.Tensor, energy_ratio: float) -> int:
     """
     X is either a matrix or a batch of matrices (each one from a group)
@@ -668,9 +656,30 @@ def get_rank_to_keep_from_energy_ratio(X, S: torch.Tensor, energy_ratio: float) 
     return idx.item() + 1
 
 
+# See comment below on why this is the same function for both params and flops
+def get_rank_to_keep_from_uniform_compression_ratio(
+    X: torch.Tensor, S: torch.Tensor, ratio: float
+) -> int:
+    """
+    X is either a matrix or a batch of matrices (each one from a group)
+    S is either a vector or a batch of vectors (each one from a group)
+    """
+    assert 0.0 <= ratio <= 1.0
+    if S.ndim == 1:
+        S = S.unsqueeze(0)
+    m, n = X.shape[-2], X.shape[-1]
+    cum_ratios = torch.arange(1, S.shape[1] + 1, device=S.device) * (m + n) / (m * n)
+    idx = torch.searchsorted(cum_ratios, ratio)
+    return idx.item() + 1
+
+
 rank_to_keep_name_to_fn = {
-    "rank_ratio_to_keep": get_rank_to_keep_from_rank_ratio,
     "svals_energy_ratio_to_keep": get_rank_to_keep_from_energy_ratio,
+    # it is easy to check that keeping some ratio of params leads to the same ratio of flops
+    # and viceversa (for flops, the spatial dimensions cancel out in the ratio)
+    "params_ratio_to_keep": get_rank_to_keep_from_uniform_compression_ratio,
+    "flops_ratio_to_keep": get_rank_to_keep_from_uniform_compression_ratio,
+    "uniform_compression_ratio_to_keep": get_rank_to_keep_from_uniform_compression_ratio,
 }
 
 

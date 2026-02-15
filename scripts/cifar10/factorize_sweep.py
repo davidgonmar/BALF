@@ -37,7 +37,14 @@ parser.add_argument("--calib_size", type=int, default=1024)
 parser.add_argument(
     "--mode",
     default="flops_auto",
-    choices=["flops_auto", "params_auto", "energy_act_aware", "energy"],
+    choices=[
+        "flops_auto",
+        "params_auto",
+        "energy_act_aware",
+        "energy",
+        "uniform",
+        "uniform_act_aware",
+    ],
 )
 parser.add_argument("--seed", type=int, default=0)
 args = parser.parse_args()
@@ -101,14 +108,16 @@ for k in get_values_for_model_and_mode(args.model_name, args.mode):
                 args.seed,
             ),
         )
-    elif args.mode == "energy_act_aware":
+    elif args.mode == "energy_act_aware" or args.mode == "uniform_act_aware":
+        name = (
+            "svals_energy_ratio_to_keep"
+            if args.mode == "energy_act_aware"
+            else "uniform_compression_ratio_to_keep"
+        )
         model_lr = to_low_rank_activation_aware_manual(
             model,
             activation_cache,
-            cfg_dict={
-                kk: {"name": "svals_energy_ratio_to_keep", "value": k}
-                for kk in layer_keys
-            },
+            cfg_dict={kk: {"name": name, "value": k} for kk in layer_keys},
             inplace=False,
             save_dir=make_factorization_cache_location(
                 args.model_name,
@@ -118,13 +127,15 @@ for k in get_values_for_model_and_mode(args.model_name, args.mode):
                 args.seed,
             ),
         )
-    elif args.mode == "energy":
+    elif args.mode == "energy" or args.mode == "uniform":
+        name = (
+            "svals_energy_ratio_to_keep"
+            if args.mode == "energy_act_aware"
+            else "uniform_compression_ratio_to_keep"
+        )
         model_lr = to_low_rank_manual(
             model,
-            cfg_dict={
-                kk: {"name": "svals_energy_ratio_to_keep", "value": k}
-                for kk in layer_keys
-            },
+            cfg_dict={kk: {"name": name, "value": k} for kk in layer_keys},
             inplace=False,
         )
 

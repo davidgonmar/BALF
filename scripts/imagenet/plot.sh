@@ -20,6 +20,8 @@ python "${PLOT_SCRIPT}" \
   --params_json "${ROOT_DIR}/results/imagenet/resnet18/factorized_posttrain/params_auto/results.json" \
   --energy_json "${ROOT_DIR}/results/imagenet/resnet18//factorized_posttrain/energy/results.json" \
   --energy_act_aware_json "${ROOT_DIR}/results/imagenet/resnet18/factorized_posttrain/energy_act_aware/results.json" \
+  --uniform_json "${ROOT_DIR}/results/imagenet/resnet18/factorized_posttrain/uniform/results.json" \
+  --uniform_act_aware_json "${ROOT_DIR}/results/imagenet/resnet18/factorized_posttrain/uniform_act_aware/results.json" \
   --output_dir "${OUTPUT_DIR}"
 
 # resnet50
@@ -30,6 +32,8 @@ python "${PLOT_SCRIPT}" \
   --params_json "${ROOT_DIR}/results/imagenet/resnet50/factorized_posttrain/params_auto/results.json" \
   --energy_json "${ROOT_DIR}/results/imagenet/resnet50/factorized_posttrain/energy/results.json" \
   --energy_act_aware_json "${ROOT_DIR}/results/imagenet/resnet50/factorized_posttrain/energy_act_aware/results.json" \
+  --uniform_json "${ROOT_DIR}/results/imagenet/resnet50/factorized_posttrain/uniform/results.json" \
+  --uniform_act_aware_json "${ROOT_DIR}/results/imagenet/resnet50/factorized_posttrain/uniform_act_aware/results.json" \
   --output_dir "${OUTPUT_DIR}"
 
 
@@ -40,6 +44,8 @@ python "${PLOT_SCRIPT}" \
   --params_json "${ROOT_DIR}/results/imagenet/mobilenet_v2/factorized_posttrain/params_auto/results.json" \
   --energy_json "${ROOT_DIR}/results/imagenet/mobilenet_v2/factorized_posttrain/energy/results.json" \
   --energy_act_aware_json "${ROOT_DIR}/results/imagenet/mobilenet_v2/factorized_posttrain/energy_act_aware/results.json" \
+  --uniform_json "${ROOT_DIR}/results/imagenet/mobilenet_v2/factorized_posttrain/uniform/results.json" \
+  --uniform_act_aware_json "${ROOT_DIR}/results/imagenet/mobilenet_v2/factorized_posttrain/uniform_act_aware/results.json" \
   --output_dir "${OUTPUT_DIR}"
 
 # resnext50_32x4d
@@ -50,6 +56,8 @@ python "${PLOT_SCRIPT}" \
   --params_json "${ROOT_DIR}/results/imagenet/resnext50_32x4d/factorized_posttrain/params_auto/results.json" \
   --energy_json "${ROOT_DIR}/results/imagenet/resnext50_32x4d/factorized_posttrain/energy/results.json" \
   --energy_act_aware_json "${ROOT_DIR}/results/imagenet/resnext50_32x4d/factorized_posttrain/energy_act_aware/results.json" \
+  --uniform_json "${ROOT_DIR}/results/imagenet/resnext50_32x4d/factorized_posttrain/uniform/results.json" \
+  --uniform_act_aware_json "${ROOT_DIR}/results/imagenet/resnext50_32x4d/factorized_posttrain/uniform_act_aware/results.json" \
   --output_dir "${OUTPUT_DIR}"
 
 # resnext101_32x8d
@@ -60,6 +68,8 @@ python "${PLOT_SCRIPT}" \
   --params_json "${ROOT_DIR}/results/imagenet/resnext101_32x8d/factorized_posttrain/params_auto/results.json" \
   --energy_json "${ROOT_DIR}/results/imagenet/resnext101_32x8d/factorized_posttrain/energy/results.json" \
   --energy_act_aware_json "${ROOT_DIR}/results/imagenet/resnext101_32x8d/factorized_posttrain/energy_act_aware/results.json" \
+  --uniform_json "${ROOT_DIR}/results/imagenet/resnext101_32x8d/factorized_posttrain/uniform/results.json" \
+  --uniform_act_aware_json "${ROOT_DIR}/results/imagenet/resnext101_32x8d/factorized_posttrain/uniform_act_aware/results.json" \
   --output_dir "${OUTPUT_DIR}"
 
 # ViT
@@ -70,6 +80,8 @@ python "${PLOT_SCRIPT}" \
   --params_json "${ROOT_DIR}/results/imagenet/vit_b_16/factorized_posttrain/params_auto/results.json" \
   --energy_json "${ROOT_DIR}/results/imagenet/vit_b_16/factorized_posttrain/energy/results.json" \
   --energy_act_aware_json "${ROOT_DIR}/results/imagenet/vit_b_16/factorized_posttrain/energy_act_aware/results.json" \
+  --uniform_json "${ROOT_DIR}/results/imagenet/vit_b_16/factorized_posttrain/uniform/results.json" \
+  --uniform_act_aware_json "${ROOT_DIR}/results/imagenet/vit_b_16/factorized_posttrain/uniform_act_aware/results.json" \
   --output_dir "${OUTPUT_DIR}"
   
 echo "Plots saved in ${OUTPUT_DIR}."
@@ -83,5 +95,7 @@ python "${PLOT_SCRIPT}" \
   --params_json "${ROOT_DIR}/results/imagenet/deit_b_16/factorized_posttrain/params_auto/results.json" \
   --energy_json "${ROOT_DIR}/results/imagenet/deit_b_16/factorized_posttrain/energy/results.json" \
   --energy_act_aware_json "${ROOT_DIR}/results/imagenet/deit_b_16/factorized_posttrain/energy_act_aware/results.json" \
+  --uniform_json "${ROOT_DIR}/results/imagenet/deit_b_16/factorized_posttrain/uniform/results.json" \
+  --uniform_act_aware_json "${ROOT_DIR}/results/imagenet/deit_b_16/factorized_posttrain/uniform_act_aware/results.json" \
   --output_dir "${OUTPUT_DIR}"
   

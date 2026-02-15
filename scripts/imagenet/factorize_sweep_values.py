@@ -311,7 +311,7 @@ ratios_energy_act_aware_deit_b_16 = [
 
 
 def get_values_for_model_and_mode(model_name: str, mode: str):
-    if mode in ["params_auto", "flops_auto"]:
+    if mode in ["params_auto", "flops_auto", "uniform", "uniform_act_aware"]:
         return ratios_comp_all  # same for all models
     elif mode == "energy_act_aware":
         if model_name == "resnet18":

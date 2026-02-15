@@ -18,6 +18,8 @@ python "${PLOT_SCRIPT}" \
   --params_json "${ROOT_DIR}/results/cifar10/resnet20/factorized_posttrain/params_auto/results.json" \
   --energy_json "${ROOT_DIR}/results/cifar10/resnet20/factorized_posttrain/energy/results.json" \
   --energy_act_aware_json "${ROOT_DIR}/results/cifar10/resnet20/factorized_posttrain/energy_act_aware/results.json" \
+  --uniform_json "${ROOT_DIR}/results/cifar10/resnet20/factorized_posttrain/uniform/results.json" \
+  --uniform_act_aware_json "${ROOT_DIR}/results/cifar10/resnet20/factorized_posttrain/uniform_act_aware/results.json" \
   --output_dir "${OUTPUT_DIR}"
 
 echo "=== Plotting ResNet56 ==="
@@ -27,6 +29,8 @@ python "${PLOT_SCRIPT}" \
   --params_json "${ROOT_DIR}/results/cifar10/resnet56/factorized_posttrain/params_auto/results.json" \
   --energy_json "${ROOT_DIR}/results/cifar10/resnet56/factorized_posttrain/energy/results.json" \
   --energy_act_aware_json "${ROOT_DIR}/results/cifar10/resnet56/factorized_posttrain/energy_act_aware/results.json" \
+  --uniform_json "${ROOT_DIR}/results/cifar10/resnet56/factorized_posttrain/uniform/results.json" \
+  --uniform_act_aware_json "${ROOT_DIR}/results/cifar10/resnet56/factorized_posttrain/uniform_act_aware/results.json" \
   --output_dir "${OUTPUT_DIR}"
 
 echo "Plots saved in ${OUTPUT_DIR}."

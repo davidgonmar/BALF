@@ -35,6 +35,20 @@ python "${SCRIPT_DIR}/factorize_sweep.py" \
   --mode energy_act_aware \
   --seed 0
 
+python "${SCRIPT_DIR}/factorize_sweep.py" \
+  --model_name resnet20 \
+  --pretrained_path "${ROOT_DIR}/results/cifar10/resnet20/base/model.pth" \
+  --results_dir "${ROOT_DIR}/results/cifar10/resnet20/factorized_posttrain/uniform" \
+  --mode uniform \
+  --seed 0
+
+python "${SCRIPT_DIR}/factorize_sweep.py" \
+  --model_name resnet20 \
+  --pretrained_path "${ROOT_DIR}/results/cifar10/resnet20/base/model.pth" \
+  --results_dir "${ROOT_DIR}/results/cifar10/resnet20/factorized_posttrain/uniform_act_aware" \
+  --mode uniform_act_aware \
+  --seed 0
+
 # Then run the sweep on ResNet56
 python "${SCRIPT_DIR}/factorize_sweep.py" \
   --model_name resnet56 \
@@ -62,4 +76,18 @@ python "${SCRIPT_DIR}/factorize_sweep.py" \
   --pretrained_path "${ROOT_DIR}/results/cifar10/resnet56/base/model.pth" \
   --results_dir "${ROOT_DIR}/results/cifar10/resnet56/factorized_posttrain/energy_act_aware" \
   --mode energy_act_aware \
+  --seed 0
+
+python "${SCRIPT_DIR}/factorize_sweep.py" \
+  --model_name resnet56 \
+  --pretrained_path "${ROOT_DIR}/results/cifar10/resnet56/base/model.pth" \
+  --results_dir "${ROOT_DIR}/results/cifar10/resnet56/factorized_posttrain/uniform" \
+  --mode uniform \
+  --seed 0
+
+python "${SCRIPT_DIR}/factorize_sweep.py" \
+  --model_name resnet56 \
+  --pretrained_path "${ROOT_DIR}/results/cifar10/resnet56/base/model.pth" \
+  --results_dir "${ROOT_DIR}/results/cifar10/resnet56/factorized_posttrain/uniform_act_aware" \
+  --mode uniform_act_aware \
   --seed 0
