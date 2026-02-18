@@ -234,7 +234,7 @@ for k in get_values_for_model_and_mode(args.model_name, args.mode):
                 args.seed,
             ),
         )
-    elif args.mode == "energy" or args.mode == "params":
+    elif args.mode == "energy" or args.mode == "uniform":
         name = (
             "svals_energy_ratio_to_keep"
             if args.mode == "energy"

@@ -469,7 +469,7 @@ def to_low_rank_activation_aware_auto(
 ):
     if not 0 < ratio_to_keep <= 1:
         raise ValueError("ratio_to_keep must be in (0, 1].")
-    if metric not in {"flops", "params", "rank"}:
+    if metric not in {"flops", "params"}:
         raise ValueError(f"Unknown metric '{metric}'.")
     if not inplace:
         model = copy.deepcopy(model)
@@ -558,10 +558,7 @@ def to_low_rank_activation_aware_auto(
         time_end_factorization_and_whitening - time_start_factorization_and_whitening
     )
 
-    if metric == "rank":
-        costs = [torch.arange(1, len(e) + 1, device=e.device) for e in cum_energies]
-        total_budget = sum(len(e) for e in cum_energies) * ratio_to_keep
-    elif metric == "flops":
+    if metric == "flops":
         make_cost = lambda w, o, mod: (
             generate_cost_flops_linear(w.shape, o, mod)
             if len(o) in {2, 3}
@@ -656,6 +653,19 @@ def get_rank_to_keep_from_energy_ratio(X, S: torch.Tensor, energy_ratio: float) 
     return idx.item() + 1
 
 
+# this one is only used for a toy demonstration in a figure
+def get_rank_to_keep_from_rank_ratio(X, S: torch.Tensor, rank_ratio: float):
+    """
+    X is either a matrix or a batch of matrices (each one from a group)
+    S is either a vector or a batch of vectors (each one from a group)
+    """
+    assert 0.0 <= rank_ratio <= 1.0, "rank_ratio must be in [0, 1]"
+    if S.ndim == 1:
+        S = S.unsqueeze(0)
+    k = math.ceil(S.shape[1] * rank_ratio)
+    return max(k, 1)
+
+
 # See comment below on why this is the same function for both params and flops
 def get_rank_to_keep_from_uniform_compression_ratio(
     X: torch.Tensor, S: torch.Tensor, ratio: float
@@ -674,6 +684,7 @@ def get_rank_to_keep_from_uniform_compression_ratio(
 
 
 rank_to_keep_name_to_fn = {
+    "rank_ratio_to_keep": get_rank_to_keep_from_rank_ratio,
     "svals_energy_ratio_to_keep": get_rank_to_keep_from_energy_ratio,
     # it is easy to check that keeping some ratio of params leads to the same ratio of flops
     # and viceversa (for flops, the spatial dimensions cancel out in the ratio)

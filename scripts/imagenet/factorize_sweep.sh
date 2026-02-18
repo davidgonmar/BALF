@@ -32,7 +32,7 @@ python "${SCRIPT_DIR}/factorize_sweep.py" \
   --train_dir "${ROOT_DIR}/imagenet-calib" \
   --val_dir "${ROOT_DIR}/imagenet-val" \
   --eval_subset_size ${EVAL_SUBSET_SIZE} \
-  --batch_size_eval 512
+  --batch_size_eval 256
 
 python "${SCRIPT_DIR}/factorize_sweep.py" \
   --model_name resnet18 \
@@ -271,7 +271,7 @@ python "${SCRIPT_DIR}/factorize_sweep.py" \
 python "${SCRIPT_DIR}/factorize_sweep.py" \
   --model_name resnext101_32x8d \
   --results_dir "${ROOT_DIR}/results/imagenet/resnext101_32x8d/factorized_posttrain/uniform" \
-  --mode params \
+  --mode uniform \
   --seed 0 \
   --train_dir "${ROOT_DIR}/imagenet-calib" \
   --val_dir "${ROOT_DIR}/imagenet-val" \
@@ -282,7 +282,7 @@ python "${SCRIPT_DIR}/factorize_sweep.py" \
 python "${SCRIPT_DIR}/factorize_sweep.py" \
   --model_name resnext101_32x8d \
   --results_dir "${ROOT_DIR}/results/imagenet/resnext101_32x8d/factorized_posttrain/uniform_act_aware" \
-  --mode params_act_aware \
+  --mode uniform_act_aware \
   --seed 0 \
   --train_dir "${ROOT_DIR}/imagenet-calib" \
   --val_dir "${ROOT_DIR}/imagenet-val" \
@@ -496,6 +496,7 @@ python "${SCRIPT_DIR}/factorize_sweep.py" \
   --batch_size_eval 128 \
   --batch_size_cache 64 \
   --eval_subset_size ${EVAL_SUBSET_SIZE} \
+
 
 python "${SCRIPT_DIR}/factorize_sweep.py" \
   --model_name deit_b_16 \
