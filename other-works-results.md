@@ -231,3 +231,76 @@ Called in the paper
 ### Notes
 
 Called DC-ViT.
+
+## [Distribution-Aware Tensor Decomposition for Compression of Convolutional Neural Networks](https://arxiv.org/pdf/2511.04494v2)
+
+
+Raw
+
+ResNet-18 (orig acc 69.8%)
+
+| Compr. Rate | Tucker2-ALS | AG-LRA | FW-LRA | Tucker2-ALS-Sigma |
+|------------:|------------:|-------:|-------:|------------------:|
+| 1.4         | 58.9        | 54.9   | 36.7   | 66.8              |
+| 1.5         | 52.2        | 45.0   | 18.9   | 66.1              |
+| 1.63        | 36.1        | 37.5   | 12.2   | 64.9              |
+| 1.77        | 30.2        | 31.2   | 4.2    | 63.3              |
+
+| Compr. Rate | CP-ALS-Sigma | CP-ALS |
+|------------:|------------:|------------------:|
+| 2.07        | 67.89        | 66.58              |
+| 2.53        | 66.46        | 61.77              |
+| 3.25        | 63.10        | 48.74              |
+
+ResNet-50 (orig acc 76.23%)
+| Compr. Rate | Tucker2-ALS-Sigma | Tucker2-ALS |
+|------------:|------------:|------------------:|
+| 1.38        | 73.66        | 71.74              |
+| 1.44        | 72.33        | 66.68              |
+| 1.47        | 71.00        | 61.94              |
+| 1.50        | 69.33       | 56.09              |
+
+CP-ALS not reported
+
+
+| Model | Method | Δ Params (%) | Top-1 Acc (%) | Δ Top-1 (pp) |
+|---|---|---:|---:|---:|
+| ResNet-18 | Original | - | 69.80 | - |
+| ResNet-18 | AG-LRA | -28.57 | 54.90 | -14.90 |
+| ResNet-18 | AG-LRA | -33.33 | 45.00 | -24.80 |
+| ResNet-18 | AG-LRA | -38.65 | 37.50 | -32.30 |
+| ResNet-18 | AG-LRA | -43.50 | 31.20 | -38.60 |
+| ResNet-18 | FW-LRA | -28.57 | 36.70 | -33.10 |
+| ResNet-18 | FW-LRA | -33.33 | 18.90 | -50.90 |
+| ResNet-18 | FW-LRA | -38.65 | 12.20 | -57.60 |
+| ResNet-18 | FW-LRA | -43.50 | 4.20 | -65.60 |
+| ResNet-18 | Tucker2-ALS | -28.57 | 58.90 | -10.90 |
+| ResNet-18 | Tucker2-ALS | -33.33 | 52.20 | -17.60 |
+| ResNet-18 | Tucker2-ALS | -38.65 | 36.10 | -33.70 |
+| ResNet-18 | Tucker2-ALS | -43.50 | 30.20 | -39.60 |
+| ResNet-18 | Tucker2-ALS-Sigma | -28.57 | 66.80 | -3.00 |
+| ResNet-18 | Tucker2-ALS-Sigma | -33.33 | 66.10 | -3.70 |
+| ResNet-18 | Tucker2-ALS-Sigma | -38.65 | 64.90 | -4.90 |
+| ResNet-18 | Tucker2-ALS-Sigma | -43.50 | 63.30 | -6.50 |
+
+| Model | Method | Δ Params (%) | Top-1 Acc (%) | Δ Top-1 (pp) |
+|---|---|---:|---:|---:|
+| ResNet-18 | Original | - | 69.80 | - |
+| ResNet-18 | CP-ALS | -51.69 | 66.58 | -3.22 |
+| ResNet-18 | CP-ALS | -60.47 | 61.77 | -8.03 |
+| ResNet-18 | CP-ALS | -69.23 | 48.74 | -21.06 |
+| ResNet-18 | CP-ALS-Sigma | -51.69 | 67.89 | -1.91 |
+| ResNet-18 | CP-ALS-Sigma | -60.47 | 66.46 | -3.34 |
+| ResNet-18 | CP-ALS-Sigma | -69.23 | 63.10 | -6.70 |
+
+| Model | Method | Δ Params (%) | Top-1 Acc (%) | Δ Top-1 (pp) |
+|---|---|---:|---:|---:|
+| ResNet-50 | Original | - | 76.23 | - |
+| ResNet-50 | Tucker2-ALS | -27.54 | 71.74 | -4.49 |
+| ResNet-50 | Tucker2-ALS | -30.56 | 66.68 | -9.55 |
+| ResNet-50 | Tucker2-ALS | -31.97 | 61.94 | -14.29 |
+| ResNet-50 | Tucker2-ALS | -33.33 | 56.09 | -20.14 |
+| ResNet-50 | Tucker2-ALS-Sigma | -27.54 | 73.66 | -2.57 |
+| ResNet-50 | Tucker2-ALS-Sigma | -30.56 | 72.33 | -3.90 |
+| ResNet-50 | Tucker2-ALS-Sigma | -31.97 | 71.00 | -5.23 |
+| ResNet-50 | Tucker2-ALS-Sigma | -33.33 | 69.33 | -6.90 |

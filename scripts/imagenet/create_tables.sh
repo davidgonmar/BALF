@@ -9,6 +9,13 @@ TABLE_SCRIPT="${SCRIPT_DIR}/../create_tables.py"
 OUTPUT_DIR="${ROOT_DIR}/results/imagenet/tables"
 mkdir -p "${OUTPUT_DIR}"
 
+echo "=== Creating ResNet18 table (row-grouped) ==="
+python "${TABLE_SCRIPT}" \
+  "${ROOT_DIR}/results/imagenet/resnet18/factorized_posttrain" \
+  --ratios 0.6,0.7,0.8 \
+  --decimals 2 \
+  > "${OUTPUT_DIR}/resnet18_table.tex"
+
 echo "=== Creating ResNet50 table (row-grouped) ==="
 python "${TABLE_SCRIPT}" \
   "${ROOT_DIR}/results/imagenet/resnet50/factorized_posttrain" \
