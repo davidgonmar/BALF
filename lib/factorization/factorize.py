@@ -55,11 +55,12 @@ def maximize_energy(
     lambda_min = 0.0
     lambda_max = 1.0
 
-    # Initial feasibility check at lambda_min = 0 (in case we can keep all energy within budget)
-    # Not usual, but it's better to be safe
+    # Initial feasibility check at lambda_min = 0
     sel_min, cost_min = compute_selection(lambda_min)
     if cost_min <= float(total_cost):
-        return [len(e_i) for e_i in energies]
+        return [
+            j + 1 for j in sel_min
+        ]  # convert to 1-based (to denote number of singular values kept)
 
     # Grow lambda_max until feasible
     while True:

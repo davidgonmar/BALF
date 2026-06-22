@@ -139,7 +139,8 @@ if __name__ == "__main__":
     }
 
     method_color = {
-        "auto": "C0",
+        "balf_f": "C0",
+        "balf_p": "C5",
         "energy": "C1",
         "energy_aa": "C2",
         "uniform": "C3",
@@ -158,8 +159,10 @@ if __name__ == "__main__":
 
     # Helper to map series key -> method bucket for colors
     def series_method(key):
-        if key in ("flops_auto", "params_auto"):
-            return "auto"
+        if key == "flops_auto":
+            return "balf_f"
+        if key == "params_auto":
+            return "balf_p"
         if key == "energy":
             return "energy"
         if key == "energy_aa":
@@ -168,7 +171,7 @@ if __name__ == "__main__":
             return "uniform"
         if key == "uniform_act_aware":
             return "uniform_aa"
-        return "auto"
+        return "balf_f"
 
     fig, ax = plt.subplots(figsize=FIGSIZE)
     ax_top = ax.twiny()
@@ -176,7 +179,9 @@ if __name__ == "__main__":
     plotted_any = False
     flops_x_all, params_x_all = [], []
 
-    for key in ["flops_auto", "energy", "energy_aa", "uniform", "uniform_act_aware"]:
+    all_keys = ["flops_auto", "params_auto", "energy", "energy_aa", "uniform", "uniform_act_aware"]
+
+    for key in all_keys:
         results = data.get(key)
         if results:
             x_vals, y_vals = extract_xy(results, "flops_ratio")
@@ -196,7 +201,7 @@ if __name__ == "__main__":
         else:
             print(f"Skipping '{key}' on FLOPs axis: no data.")
 
-    for key in ["params_auto", "energy", "energy_aa", "uniform", "uniform_act_aware"]:
+    for key in all_keys:
         results = data.get(key)
         if results:
             x_vals, y_vals = extract_xy(results, "params_ratio")
@@ -261,7 +266,8 @@ if __name__ == "__main__":
 
     # Legend B: colors (methods)
     method_handles = [
-        Line2D([0], [0], linestyle="-", color=method_color["auto"], label="BALF"),
+        Line2D([0], [0], linestyle="-", color=method_color["balf_f"], label="BALF-F"),
+        Line2D([0], [0], linestyle="-", color=method_color["balf_p"], label="BALF-P"),
         Line2D([0], [0], linestyle="-", color=method_color["energy"], label="Energy"),
         Line2D(
             [0], [0], linestyle="-", color=method_color["energy_aa"], label="Energy-AA"

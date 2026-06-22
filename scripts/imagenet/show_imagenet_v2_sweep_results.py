@@ -5,6 +5,12 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 
 
+TITLE_FONT_SIZE = 18
+AXIS_LABEL_FONT_SIZE = 15
+TICK_FONT_SIZE = 13
+LEGEND_FONT_SIZE = 12
+
+
 MODEL_NAME_TO_PRETTY = {
     "resnet18": "ResNet-18",
     "resnet50": "ResNet-50",
@@ -136,11 +142,16 @@ def _plot_variant(
     )
 
     variant_pretty = IMAGENETV2_VARIANT_PRETTY.get(variant, variant)
-    plt.title(f"ImageNet-V2/{variant_pretty} ({pretty_model_name})", fontsize=14)
-    plt.xlabel("Target keep ratio", fontsize=12)
-    plt.ylabel("Clean-val accuracy", fontsize=12)
+    plt.title(
+        f"ImageNet-V2/{variant_pretty} ({pretty_model_name})",
+        fontsize=TITLE_FONT_SIZE,
+    )
+    plt.xlabel("Target keep ratio", fontsize=AXIS_LABEL_FONT_SIZE)
+    plt.ylabel("Clean-val accuracy", fontsize=AXIS_LABEL_FONT_SIZE)
+    plt.xticks(fontsize=TICK_FONT_SIZE)
+    plt.yticks(fontsize=TICK_FONT_SIZE)
     plt.grid(True, linestyle=":", linewidth=0.8, alpha=0.8)
-    plt.legend(fontsize=9, ncol=2, frameon=True)
+    plt.legend(fontsize=LEGEND_FONT_SIZE, ncol=2, frameon=True)
     plt.tight_layout()
 
     out_path = out_dir / f"{variant}.pdf"

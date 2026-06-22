@@ -5,6 +5,12 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 
 
+TITLE_FONT_SIZE = 18
+AXIS_LABEL_FONT_SIZE = 15
+TICK_FONT_SIZE = 13
+LEGEND_FONT_SIZE = 12
+
+
 def _load_json(path):
     with open(path, "r") as f:
         return json.load(f)
@@ -157,13 +163,15 @@ def _plot_corruption(
         label="baseline",
     )
 
-    plt.title(f"CIFAR-10-C: {corr}", fontsize=14)
-    plt.xlabel("Target keep ratio", fontsize=12)
-    plt.ylabel("Clean-test accuracy", fontsize=12)
+    plt.title(f"CIFAR-10-C: {corr}", fontsize=TITLE_FONT_SIZE)
+    plt.xlabel("Target keep ratio", fontsize=AXIS_LABEL_FONT_SIZE)
+    plt.ylabel("Clean-test accuracy", fontsize=AXIS_LABEL_FONT_SIZE)
+    plt.xticks(fontsize=TICK_FONT_SIZE)
+    plt.yticks(fontsize=TICK_FONT_SIZE)
     plt.grid(True, linestyle=":", linewidth=0.8, alpha=0.8)
 
     # Keep legend readable with many lines.
-    plt.legend(fontsize=9, ncol=2, frameon=True)
+    plt.legend(fontsize=LEGEND_FONT_SIZE, ncol=2, frameon=True)
     plt.tight_layout()
 
     out_path = out_dir / f"{corr}.pdf"

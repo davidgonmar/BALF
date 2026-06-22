@@ -10,32 +10,35 @@ IMAGENET_VAL_DIR="${ROOT_DIR}/imagenet-val"
 IMAGENETC_ROOT="${ROOT_DIR}/ImageNet-C"
 SEED="0"
 
-SUBSETS=(extra)
+SUBSETS=(noise weather blur digital extra)
 
 for SUBSET in "${SUBSETS[@]}"; do
-  echo "=== Running ${MODEL_NAME} on ImageNet-C subset: ${SUBSET} (params_auto) ==="
-  OUT_DIR="${ROOT_DIR}/results/imagenet/${MODEL_NAME}/factorized_posttrain_imagenetc/${SUBSET}"
 
-  python "${SCRIPT_DIR}/corrupted_sweep.py" \
-    --model_name "${MODEL_NAME}" \
-    --results_json "${OUT_DIR}/params_auto/results.json" \
-    --imagenetc_root "${IMAGENETC_ROOT}" \
-    --imagenetc_subset "${SUBSET}" \
-    --train_dir "${IMAGENET_TRAIN_DIR}" \
-    --val_dir "${IMAGENET_VAL_DIR}" \
-    --mode params_auto \
-    --seed "${SEED}"
+  if false; then
+    echo "=== Running ${MODEL_NAME} on ImageNet-C subset: ${SUBSET} (params_auto) ==="
+    OUT_DIR="${ROOT_DIR}/results/imagenet/${MODEL_NAME}/factorized_posttrain_imagenetc/${SUBSET}"
 
-  echo "=== Running ${MODEL_NAME} on ImageNet-C subset: ${SUBSET} (flops_auto) ==="
-  python "${SCRIPT_DIR}/corrupted_sweep.py" \
-    --model_name "${MODEL_NAME}" \
-    --results_json "${OUT_DIR}/flops_auto/results.json" \
-    --imagenetc_root "${IMAGENETC_ROOT}" \
-    --imagenetc_subset "${SUBSET}" \
-    --train_dir "${IMAGENET_TRAIN_DIR}" \
-    --val_dir "${IMAGENET_VAL_DIR}" \
-    --mode flops_auto \
-    --seed "${SEED}"
+    python "${SCRIPT_DIR}/corrupted_sweep.py" \
+      --model_name "${MODEL_NAME}" \
+      --results_json "${OUT_DIR}/params_auto/results.json" \
+      --imagenetc_root "${IMAGENETC_ROOT}" \
+      --imagenetc_subset "${SUBSET}" \
+      --train_dir "${IMAGENET_TRAIN_DIR}" \
+      --val_dir "${IMAGENET_VAL_DIR}" \
+      --mode params_auto \
+      --seed "${SEED}"
+
+    echo "=== Running ${MODEL_NAME} on ImageNet-C subset: ${SUBSET} (flops_auto) ==="
+    python "${SCRIPT_DIR}/corrupted_sweep.py" \
+      --model_name "${MODEL_NAME}" \
+      --results_json "${OUT_DIR}/flops_auto/results.json" \
+      --imagenetc_root "${IMAGENETC_ROOT}" \
+      --imagenetc_subset "${SUBSET}" \
+      --train_dir "${IMAGENET_TRAIN_DIR}" \
+      --val_dir "${IMAGENET_VAL_DIR}" \
+      --mode flops_auto \
+      --seed "${SEED}"
+  fi
 
   FIG_OUT_DIR="${ROOT_DIR}/results/imagenet/${MODEL_NAME}/figs_appendix_imagenetc/${SUBSET}"
   PARAMS_JSON="${ROOT_DIR}/results/imagenet/${MODEL_NAME}/factorized_posttrain_imagenetc/${SUBSET}/params_auto/results.json"

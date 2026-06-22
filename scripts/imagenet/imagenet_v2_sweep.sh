@@ -12,25 +12,27 @@ SEED="0"
 
 OUT_DIR="${ROOT_DIR}/results/imagenet/${MODEL_NAME}/factorized_posttrain_imagenetv2_all"
 
-echo "=== Running ${MODEL_NAME} on ImageNet-V2 all variants (params_auto) ==="
-python "${SCRIPT_DIR}/imagenet_v2_sweep.py" \
-  --model_name "${MODEL_NAME}" \
-  --results_json "${OUT_DIR}/params_auto/results.json" \
-  --imagenetv2_root "${IMAGENETV2_ROOT}" \
-  --train_dir "${IMAGENET_TRAIN_DIR}" \
-  --val_dir "${IMAGENET_VAL_DIR}" \
-  --mode params_auto \
-  --seed "${SEED}"
+if false; then
+  echo "=== Running ${MODEL_NAME} on ImageNet-V2 all variants (params_auto) ==="
+  python "${SCRIPT_DIR}/imagenet_v2_sweep.py" \
+    --model_name "${MODEL_NAME}" \
+    --results_json "${OUT_DIR}/params_auto/results.json" \
+    --imagenetv2_root "${IMAGENETV2_ROOT}" \
+    --train_dir "${IMAGENET_TRAIN_DIR}" \
+    --val_dir "${IMAGENET_VAL_DIR}" \
+    --mode params_auto \
+    --seed "${SEED}"
 
-echo "=== Running ${MODEL_NAME} on ImageNet-V2 all variants (flops_auto) ==="
-python "${SCRIPT_DIR}/imagenet_v2_sweep.py" \
-  --model_name "${MODEL_NAME}" \
-  --results_json "${OUT_DIR}/flops_auto/results.json" \
-  --imagenetv2_root "${IMAGENETV2_ROOT}" \
-  --train_dir "${IMAGENET_TRAIN_DIR}" \
-  --val_dir "${IMAGENET_VAL_DIR}" \
-  --mode flops_auto \
-  --seed "${SEED}"
+  echo "=== Running ${MODEL_NAME} on ImageNet-V2 all variants (flops_auto) ==="
+  python "${SCRIPT_DIR}/imagenet_v2_sweep.py" \
+    --model_name "${MODEL_NAME}" \
+    --results_json "${OUT_DIR}/flops_auto/results.json" \
+    --imagenetv2_root "${IMAGENETV2_ROOT}" \
+    --train_dir "${IMAGENET_TRAIN_DIR}" \
+    --val_dir "${IMAGENET_VAL_DIR}" \
+    --mode flops_auto \
+    --seed "${SEED}"
+fi
 
 FIG_OUT_DIR="${ROOT_DIR}/results/imagenet/${MODEL_NAME}/figs_appendix_imagenetv2"
 PARAMS_JSON="${ROOT_DIR}/results/imagenet/${MODEL_NAME}/factorized_posttrain_imagenetv2_all/params_auto/results.json"
